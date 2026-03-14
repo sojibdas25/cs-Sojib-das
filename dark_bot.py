@@ -44,7 +44,7 @@ COUNTRIES = {
     "🇺🇸 USA": "usa", "🇬🇧 UK": "uk", "🇨🇦 Canada": "ca",
     "🇮🇳 India": "in", "🇧🇩 BD": "bd", "🇷🇺 Russia": "ru",
     "🇲🇾 Malaysia": "my", "🇮🇩 Indonesia": "id",
-    "🇻🇳 Vietnam": "vn", "🇹🇭 Thailand": "th", "sa Saudi": "sa", "md Moldova": "md"
+    "🇻🇳 Vietnam": "vn", "🇹🇭 Thailand": "th", "🇸🇦 S. Arabia": "sa", "🇺🇦 Ukraine": "ua"
 }
 
 DB_FILE = "user_stats.json"
