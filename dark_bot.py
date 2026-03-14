@@ -44,7 +44,7 @@ COUNTRIES = {
     "🇺🇸 USA": "usa", "🇬🇧 UK": "uk", "🇨🇦 Canada": "ca",
     "🇮🇳 India": "in", "🇧🇩 BD": "bd", "🇷🇺 Russia": "ru",
     "🇲🇾 Malaysia": "my", "🇮🇩 Indonesia": "id",
-    "🇻🇳 Vietnam": "vn", "🇹🇭 Thailand": "th"
+    "🇻🇳 Vietnam": "vn", "🇹🇭 Thailand": "th", "sa Saudi": "sa", "md Moldova": "md"
 }
 
 DB_FILE = "user_stats.json"
@@ -111,7 +111,7 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         count = stats.get(str(uid), 0)
         await update.message.reply_text(f"👤 Name: {ALLOWED_USERS[uid]}\n🆔 ID: `{uid}`\n📩 Total OTP Received: `{count}`", parse_mode='Markdown')
     elif text == "📢 OTP Group":
-        group_kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔗 Join OTP Group", url="https://t.me/+Pnd1G_oTfR0yZGE1")]])
+        group_kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔗 Join OTP Group", url="https://t.me/CsDrakOtpZone")]])
         await update.message.reply_text("Join our official OTP Forwarding group:", reply_markup=group_kb)
 
 async def callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
