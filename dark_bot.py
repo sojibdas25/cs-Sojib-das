@@ -34,10 +34,11 @@ GROUP_ID = -1003525081102
 BOT_USERNAME = 'CSDarkSMSBot'
 
 ALLOWED_USERS = {
-    6528471341: "Sajib",
-    8081334307: "Chandan",
+    6528471341: "Sojib",
+    8081334307: "Sojib Das",
     8181512467: "Admin",
-    8164389661: "pc"
+    8164389661: "pc",
+    6630618306 : "Chandon"
 }
 
 COUNTRIES = {
