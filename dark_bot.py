@@ -4,18 +4,35 @@ import asyncio
 import sys
 import json
 import os
+from flask import Flask
+from threading import Thread
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
-# --- কনফিগারেশন ---
+# --- রেন্ডার কানেক্টিভিটি ফিক্স (এটি বটকে ২৪ ঘণ্টা চালু রাখবে) ---
+app_web = Flask('')
+
+@app_web.route('/')
+def home():
+    return "CS DARK SMS PRO is Running 24/7!"
+
+def run():
+    port = int(os.environ.get('PORT', 8080))
+    app_web.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.daemon = True
+    t.start()
+
+# --- আপনার অরিজিনাল কনফিগারেশন (কোনো পরিবর্তন করা হয়নি) ---
 BOT_TOKEN = '8740780011:AAFZxUCXzcUJQzZPUFNJYYbfdKnZAUNI9Fs'
 API_KEY = 'TXVzbXNNYk9BZHdJc3l1WllnYm15UT09'
 DURIAN_USER = 'rafiqmolla7'
 PROJECT_ID = '0257'
 GROUP_ID = -1003525081102 
-BOT_USERNAME = 'CSDarkSMSBot' # বটের ইউজার নেম
+BOT_USERNAME = 'CSDarkSMSBot'
 
-# অনুমোদিত ইউজার
 ALLOWED_USERS = {
     6528471341: "Sajib",
     8081334307: "Chandan",
@@ -23,7 +40,6 @@ ALLOWED_USERS = {
     8164389661: "pc"
 }
 
-# কান্ট্রি লিস্ট
 COUNTRIES = {
     "🇺🇸 USA": "usa", "🇬🇧 UK": "uk", "🇨🇦 Canada": "ca",
     "🇮🇳 India": "in", "🇧🇩 BD": "bd", "🇷🇺 Russia": "ru",
@@ -49,9 +65,8 @@ def increment_otp(user_id):
 
 logging.basicConfig(level=logging.INFO)
 
-# --- কিবোর্ড মেনু ---
+# --- আপনার অরিজিনাল কিবোর্ড ও হ্যান্ডলারস ---
 def main_menu():
-    # এখানে 'OTP Group' বাটনটি যোগ করা হয়েছে
     keyboard = [
         [KeyboardButton("📱 Get Number")],
         [KeyboardButton("💰 Balance"), KeyboardButton("ℹ️ My ID")],
@@ -69,7 +84,6 @@ def country_menu():
         buttons.append(row)
     return InlineKeyboardMarkup(buttons)
 
-# --- হ্যান্ডলারস ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     if uid in ALLOWED_USERS:
@@ -88,48 +102,34 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "📱 Get Number":
         await update.message.reply_text("🌍 Select Country to Get Fast Number:", reply_markup=country_menu())
-    
     elif text == "💰 Balance":
         url = f"https://api.durianrcs.com/out/ext_api/getBalance?name={DURIAN_USER}&ApiKey={API_KEY}"
         res = requests.get(url).json()
         await update.message.reply_text(f"💰 Balance: `{res.get('data', '0')}` Credits", parse_mode='Markdown')
-
     elif text == "ℹ️ My ID":
         stats = get_stats()
         count = stats.get(str(uid), 0)
         await update.message.reply_text(f"👤 Name: {ALLOWED_USERS[uid]}\n🆔 ID: `{uid}`\n📩 Total OTP Received: `{count}`", parse_mode='Markdown')
-
     elif text == "📢 OTP Group":
-        # এখানে আপনার ওটিপি গ্রুপের লিংক দেওয়া হয়েছে
         group_kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔗 Join OTP Group", url="https://t.me/+Pnd1G_oTfR0yZGE1")]])
         await update.message.reply_text("Join our official OTP Forwarding group:", reply_markup=group_kb)
 
 async def callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
     if query.data.startswith("iso_"):
         iso = query.data.split("_")[1]
         await query.edit_message_text(f"🛰 Requesting {iso.upper()} Number...")
-        
-        # দ্রুত নম্বর রিকোয়েস্ট API
         url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={DURIAN_USER}&ApiKey={API_KEY}&pid={PROJECT_ID}&num=1&serial=2&iso={iso}"
         res = requests.get(url).json()
-        
         if res.get('code') == 200:
             number = res.get('data')
-            # বটের ভেতরে নম্বরটি পূর্ণাঙ্গ দেখাবে (প্রাইভেসি ছাড়া)
             msg = f"✅ **Number:** `{number}`\n📩 Waiting for OTP..."
-            
-            # নম্বর ব্লক ও রিকোয়েস্ট বাটনের ব্যবস্থা
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🚫 Block Number", callback_data=f"block_{number}")],
                 [InlineKeyboardButton("🔄 Request Again", callback_data=f"iso_{iso}")]
             ])
             await query.edit_message_text(msg, reply_markup=kb, parse_mode='Markdown')
-            
-            # ওটিপি গ্রুপে ফরওয়ার্ড করার লজিক এখানে কল হবে (যদি ওটিপি আসে)
-            # (নোট: আপনার API এর ওটিপি লুপ এখানে যোগ করতে পারেন)
         else:
             await query.edit_message_text(f"❌ Error: {res.get('msg')}\n(Insufficient Balance)", reply_markup=country_menu())
 
@@ -138,7 +138,7 @@ async def main():
     if sys.platform == 'win32':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
-    app = Application.builder().token(BOT_TOKEN).job_queue(None).build()
+    app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
     app.add_handler(CallbackQueryHandler(callback_query))
@@ -151,6 +151,7 @@ async def main():
         await asyncio.Event().wait()
 
 if __name__ == '__main__':
+    keep_alive() # রেন্ডার সার্ভার চালু করা
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
