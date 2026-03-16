@@ -1,121 +1,250 @@
-import logging, requests, asyncio, os
-from flask import Flask
-from threading import Thread
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+import requests
+import asyncio
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# --- ১. ওয়েব সার্ভার (রেন্ডার পোর্টের জন্য) ---
-app_web = Flask('')
-@app_web.route('/')
-def home(): return "SYSTEM: DIRECT COUNTRY SEARCH ACTIVE"
+# ================= CONFIG =================
 
-def run():
-    port = int(os.environ.get('PORT', 8080))
-    app_web.run(host='0.0.0.0', port=port)
+BOT_TOKEN = "YOUR_BOT_TOKEN"
 
-def keep_alive():
-    t = Thread(target=run)
-    t.daemon = True
-    t.start()
+API_KEY = "YOUR_API_KEY"
+USERNAME = "YOUR_PANEL_USERNAME"
+PID = "0257"
 
-# --- ২. কনফিগারেশন ---
-BOT_TOKEN = '8740780011:AAFZxUCXzcUJQzZPUFNJYYbfdKnZAUNI9Fs'
-API_KEY = 'TXVzbXNNYk9BZHdJc3l1WllnYm15UT09'
-DURIAN_USER = 'rafiqmolla7'
-PROJECT_ID = '0257' 
+BASE_URL = "https://api.durianrcs.com/out/ext_api"
 
-ALLOWED_USERS = {6528471341: "Sojib", 8081334307: "Sojib Das", 8181512467: "Admin", 8164389661: "pc", 6630618306: "Chandon"}
+ADMIN_ID = 8081334307
 
-# কান্ট্রি ডাটাবেজ (ISO এবং সঠিক প্রিফিক্স)
-COUNTRY_DATA = {
-    "ss": {"name": "South Sudan", "prefix": "211"},
-    "tm": {"name": "Turkmenistan", "prefix": "993"},
-    "ve": {"name": "Venezuela", "prefix": "58"},
-    "dz": {"name": "Algeria", "prefix": "213"}
+GROUP_ID = -1003525081102
+
+# Allowed users (Name + ID)
+ALLOWED_USERS = {
+6528471341:"Sojib",
+8081334307:"Sojib Das",
+8181512467:"Admin",
+8164389661:"pc",
+6630618306:"Chandon"
 }
 
-# --- ৩. ওটিপি ইঞ্জিন ---
-async def fetch_otp_task(context, chat_id, full_number, msg_id, iso_code):
-    num_only = ''.join(filter(str.isdigit, str(full_number)))
-    
-    # ওটিপি ফেচিং শুরু (সেট রিলিজ কল করে)
-    requests.get(f"https://api.durianrcs.com/out/ext_api/setRelease?name={DURIAN_USER}&ApiKey={API_KEY}&mobile={num_only}&serial=2")
-    vcode_url = f"https://api.durianrcs.com/out/ext_api/getVcode?name={DURIAN_USER}&ApiKey={API_KEY}&mobile={num_only}&serial=2"
-    
-    for _ in range(60): 
-        await asyncio.sleep(10)
-        try:
-            res = requests.get(vcode_url, timeout=10).json()
-            if res.get('code') == 200 and res.get('data'):
-                otp = str(res.get('data'))
-                if otp.lower() != "none" and len(otp) > 1:
-                    await context.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, 
-                        text=f"✅ **OTP Received!**\n\n📱 **Num:** `{full_number}`\n🔑 **OTP:** `{otp}`", parse_mode='Markdown')
-                    return
-        except: pass
-    
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔄 Try Again", callback_data=f"get_{iso_code}")]])
-    await context.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=f"⏳ Timeout! No OTP for `{full_number}`", reply_markup=kb)
+sessions = {}
 
-# --- ৪. ইউজার ইন্টারফেস ও নম্বর হান্টিং ---
-async def get_number_handler(context, chat_id, msg_id, iso_code):
-    country_info = COUNTRY_DATA.get(iso_code)
-    # প্যানেলকে নির্দিষ্ট দেশে বাধ্য করার জন্য এপিআই কল
-    url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={DURIAN_USER}&ApiKey={API_KEY}&pid={PROJECT_ID}&num=1&serial=2&iso={iso_code}&force_country=1"
-    
-    try:
-        res = requests.get(url, timeout=15).json()
-        if res.get('code') == 200:
-            number = res.get('data')
-            num_clean = ''.join(filter(str.isdigit, str(number)))
+# ================= KEYBOARD =================
 
-            # প্যানেল যদি তবুও ভুল দেয় (সেফটি গার্ড)
-            if not num_clean.startswith(country_info['prefix']):
-                requests.get(f"https://api.durianrcs.com/out/ext_api/cancelMobile?name={DURIAN_USER}&ApiKey={API_KEY}&mobile={num_clean}&serial=2")
-                kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔄 Search Again", callback_data=f"get_{iso_code}")]])
-                await context.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=f"❌ প্যানেল ভুল নম্বর দিয়েছে। শুধু {country_info['name']} নম্বর ফিল্টার হচ্ছে...", reply_markup=kb)
-                return
+keyboard = [
+["📱 Get Number"],
+["📩 Check OTP","❌ Cancel"],
+["💰 Balance"]
+]
 
-            # সঠিক নম্বর পাওয়া গেলে
-            kb = InlineKeyboardMarkup([[InlineKeyboardButton("🚫 Block", callback_data=f"block_{number}_{iso_code}")]])
-            await context.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, 
-                text=f"🌍 **Country:** {country_info['name']}\n📱 **Number:** `{number}`\n⏳ Waiting for OTP...", reply_markup=kb, parse_mode='Markdown')
-            asyncio.create_task(fetch_otp_task(context, chat_id, number, msg_id, iso_code))
-        else:
-            kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔄 Try Again", callback_data=f"get_{iso_code}")]])
-            await context.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=f"❌ **No Stock** for {country_info['name']}. Please try again.", reply_markup=kb)
-    except:
-        await context.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text="⚠️ Connection Error!")
+markup = ReplyKeyboardMarkup(keyboard,resize_keyboard=True)
 
-async def callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    if query.data.startswith("get_"):
-        iso = query.data.split("_")[1]
-        sent_msg = await query.edit_message_text(f"🛰 Searching for **{iso.upper()}** number only...")
-        await get_number_handler(context, query.message.chat_id, sent_msg.message_id, iso)
+# ================= START =================
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id in ALLOWED_USERS:
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🇸🇸 South Sudan", callback_data="get_ss")],
-            [InlineKeyboardButton("🇹🇲 Turkmenistan", callback_data="get_tm")],
-            [InlineKeyboardButton("🇻🇪 Venezuela", callback_data="get_ve"), InlineKeyboardButton("🇩🇿 Algeria", callback_data="get_dz")]
-        ])
-        await update.message.reply_text("🌑 **CS DARK BOT**\nTargeted Country Search Enabled.", reply_markup=kb)
+async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
-# (বাকি মেইন ফাংশন আগের মতোই)
-async def main():
-    app = Application.builder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(callback_query))
-    keep_alive()
-    async with app:
-        await app.initialize()
-        await app.start()
-        await app.updater.start_polling(drop_pending_updates=True)
-        await asyncio.Event().wait()
+    user_id = update.effective_user.id
 
-if __name__ == '__main__':
-    try: asyncio.run(main())
-    except: pass
+    if user_id not in ALLOWED_USERS:
+
+        button = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("Support Admin",url="https://t.me/8081334307")]]
+        )
+
+        await update.message.reply_text(
+"""বিশ্বাসঘাতককে আবার বিশ্বাস করা
+আর অন্ধকার শহরে আয়না বিক্রি করা একই কথা..
+
+ধন্যবাদ
+🥱☠""",
+reply_markup=button)
+
+        return
+
+    name = ALLOWED_USERS[user_id]
+
+    await update.message.reply_text(
+f"Welcome {name}\nOTP BOT READY",
+reply_markup=markup)
+
+# ================= BALANCE =================
+
+async def balance(update:Update):
+
+    url=f"{BASE_URL}/getUserInfo?name={USERNAME}&ApiKey={API_KEY}"
+
+    r=requests.get(url).json()
+
+    if r["code"]==200:
+
+        bal=r["data"]["money"]
+
+        await update.message.reply_text(f"Balance: {bal}")
+
+# ================= GET NUMBER =================
+
+async def get_number(update:Update):
+
+    user=update.effective_user.id
+
+    url=f"{BASE_URL}/getMobile?name={USERNAME}&ApiKey={API_KEY}&pid={PID}&cuy=SS"
+
+    r=requests.get(url).json()
+
+    if r["code"]==200:
+
+        number=r["data"]
+
+        sessions[user]=number
+
+        await update.message.reply_text(
+        f"Number: {number}\nWaiting OTP..."
+        )
+
+        asyncio.create_task(auto_check(update,number))
+
+    else:
+
+        await update.message.reply_text("No number available")
+
+# ================= AUTO OTP =================
+
+async def auto_check(update,number):
+
+    for i in range(30):
+
+        await asyncio.sleep(5)
+
+        url=f"{BASE_URL}/getMessage?name={USERNAME}&ApiKey={API_KEY}&phone={number}"
+
+        r=requests.get(url).json()
+
+        if r["code"]==200:
+
+            otp=r["data"]
+
+            text=f"Number: {number}\nOTP: {otp}"
+
+            await update.message.reply_text(text)
+
+            await context.bot.send_message(
+            chat_id=GROUP_ID,
+            text=text)
+
+            return
+
+# ================= CHECK OTP =================
+
+async def check_otp(update:Update):
+
+    user=update.effective_user.id
+
+    if user not in sessions:
+
+        await update.message.reply_text("No active number")
+
+        return
+
+    number=sessions[user]
+
+    url=f"{BASE_URL}/getMessage?name={USERNAME}&ApiKey={API_KEY}&phone={number}"
+
+    r=requests.get(url).json()
+
+    if r["code"]==200:
+
+        otp=r["data"]
+
+        await update.message.reply_text(f"OTP: {otp}")
+
+# ================= CANCEL =================
+
+async def cancel(update:Update):
+
+    user=update.effective_user.id
+
+    if user not in sessions:
+
+        await update.message.reply_text("No active number")
+
+        return
+
+    number=sessions[user]
+
+    url=f"{BASE_URL}/cancelMobile?name={USERNAME}&ApiKey={API_KEY}&phone={number}"
+
+    requests.get(url)
+
+    del sessions[user]
+
+    await update.message.reply_text("Number cancelled")
+
+# ================= ADMIN ADD USER =================
+
+async def adduser(update:Update,context:ContextTypes.DEFAULT_TYPE):
+
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    user_id=int(context.args[0])
+    name=context.args[1]
+
+    ALLOWED_USERS[user_id]=name
+
+    await update.message.reply_text(f"User Added: {name}")
+
+# ================= ADMIN REMOVE USER =================
+
+async def removeuser(update:Update,context:ContextTypes.DEFAULT_TYPE):
+
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    user_id=int(context.args[0])
+
+    if user_id in ALLOWED_USERS:
+
+        del ALLOWED_USERS[user_id]
+
+        await update.message.reply_text("User removed")
+
+# ================= HANDLER =================
+
+async def handle(update:Update,context:ContextTypes.DEFAULT_TYPE):
+
+    user=update.effective_user.id
+
+    if user not in ALLOWED_USERS:
+        return
+
+    text=update.message.text
+
+    if text=="📱 Get Number":
+
+        await get_number(update)
+
+    elif text=="📩 Check OTP":
+
+        await check_otp(update)
+
+    elif text=="❌ Cancel":
+
+        await cancel(update)
+
+    elif text=="💰 Balance":
+
+        await balance(update)
+
+# ================= MAIN =================
+
+app=ApplicationBuilder().token(BOT_TOKEN).build()
+
+app.add_handler(CommandHandler("start",start))
+
+app.add_handler(CommandHandler("adduser",adduser))
+app.add_handler(CommandHandler("removeuser",removeuser))
+
+app.add_handler(MessageHandler(filters.TEXT,handle))
+
+print("BOT RUNNING")
+
+app.run_polling()
