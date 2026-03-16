@@ -5,10 +5,10 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 
 # ================= CONFIG =================
 
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+BOT_TOKEN = "8740780011:AAFZxUCXzcUJQzZPUFNJYYbfdKnZAUNI9Fs"
 
-API_KEY = "YOUR_API_KEY"
-USERNAME = "YOUR_PANEL_USERNAME"
+API_KEY = "TXVzbXNNYk9BZHdJc3l1WllnYm15UT09"
+USERNAME = "rafiqmolla7"
 PID = "0257"
 
 BASE_URL = "https://api.durianrcs.com/out/ext_api"
