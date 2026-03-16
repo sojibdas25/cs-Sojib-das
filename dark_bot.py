@@ -3,9 +3,27 @@ import asyncio
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
+# ================= KEEP ALIVE =================
+
+from flask import Flask
+from threading import Thread
+
+app_web = Flask(__name__)
+
+@app_web.route('/')
+def home():
+    return "Bot Running"
+
+def run():
+    app_web.run(host="0.0.0.0", port=10000)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
 # ================= CONFIG =================
 
-BOT_TOKEN = "8740780011:AAFTVCQL58jQiANZTwgienk9-Vi_sTDYPHk"
+BOT_TOKEN = "YOUR_NEW_TOKEN"
 
 API_KEY = "TXVzbXNNYk9BZHdJc3l1WllnYm15UT09"
 USERNAME = "rafiqmolla7"
@@ -17,7 +35,8 @@ ADMIN_ID = 8081334307
 
 GROUP_ID = -1003525081102
 
-# Allowed users (Name + ID)
+# ================= USERS =================
+
 ALLOWED_USERS = {
 6528471341:"Sojib",
 8081334307:"Sojib Das",
@@ -82,7 +101,7 @@ async def balance(update:Update):
 
 # ================= GET NUMBER =================
 
-async def get_number(update:Update):
+async def get_number(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     user=update.effective_user.id
 
@@ -100,7 +119,7 @@ async def get_number(update:Update):
         f"Number: {number}\nWaiting OTP..."
         )
 
-        asyncio.create_task(auto_check(update,number))
+        asyncio.create_task(auto_check(update,context,number))
 
     else:
 
@@ -108,7 +127,7 @@ async def get_number(update:Update):
 
 # ================= AUTO OTP =================
 
-async def auto_check(update,number):
+async def auto_check(update,context,number):
 
     for i in range(30):
 
@@ -178,7 +197,7 @@ async def cancel(update:Update):
 
     await update.message.reply_text("Number cancelled")
 
-# ================= ADMIN ADD USER =================
+# ================= ADMIN =================
 
 async def adduser(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
@@ -191,8 +210,6 @@ async def adduser(update:Update,context:ContextTypes.DEFAULT_TYPE):
     ALLOWED_USERS[user_id]=name
 
     await update.message.reply_text(f"User Added: {name}")
-
-# ================= ADMIN REMOVE USER =================
 
 async def removeuser(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
@@ -219,19 +236,15 @@ async def handle(update:Update,context:ContextTypes.DEFAULT_TYPE):
     text=update.message.text
 
     if text=="📱 Get Number":
-
-        await get_number(update)
+        await get_number(update,context)
 
     elif text=="📩 Check OTP":
-
         await check_otp(update)
 
     elif text=="❌ Cancel":
-
         await cancel(update)
 
     elif text=="💰 Balance":
-
         await balance(update)
 
 # ================= MAIN =================
@@ -239,12 +252,13 @@ async def handle(update:Update,context:ContextTypes.DEFAULT_TYPE):
 app=ApplicationBuilder().token(BOT_TOKEN).build()
 
 app.add_handler(CommandHandler("start",start))
-
 app.add_handler(CommandHandler("adduser",adduser))
 app.add_handler(CommandHandler("removeuser",removeuser))
 
 app.add_handler(MessageHandler(filters.TEXT,handle))
 
 print("BOT RUNNING")
+
+keep_alive()
 
 app.run_polling()
