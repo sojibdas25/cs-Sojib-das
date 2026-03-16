@@ -5,7 +5,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 
 # ================= CONFIG =================
 
-BOT_TOKEN = "8740780011:AAFZxUCXzcUJQzZPUFNJYYbfdKnZAUNI9Fs"
+BOT_TOKEN = "8740780011:AAFTVCQL58jQiANZTwgienk9-Vi_sTDYPHk"
 
 API_KEY = "TXVzbXNNYk9BZHdJc3l1WllnYm15UT09"
 USERNAME = "rafiqmolla7"
