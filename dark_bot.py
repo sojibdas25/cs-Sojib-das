@@ -23,7 +23,7 @@ def keep_alive():
 
 # ================= CONFIG =================
 
-BOT_TOKEN = "YOUR_NEW_TOKEN"
+BOT_TOKEN = "8740780011:AAHbnPoUV_4C6JGULWVQgOAvbvW96gkqEYo"
 
 API_KEY = "TXVzbXNNYk9BZHdJc3l1WllnYm15UT09"
 USERNAME = "rafiqmolla7"
