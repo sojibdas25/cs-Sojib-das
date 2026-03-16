@@ -4,10 +4,10 @@ from threading import Thread
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
-# --- ১. রেন্ডার কানেক্টিভিটি (২৪ ঘণ্টা বট সচল রাখার জন্য) ---
+# --- ১. রেন্ডার কানেক্টিভিটি (বট ২৪ ঘণ্টা সচল রাখতে) ---
 app_web = Flask('')
 @app_web.route('/')
-def home(): return "SYSTEM STATUS: 100% STABLE"
+def home(): return "CS DARK SMS PRO - OTP AUTO-SYSTEM ACTIVE!"
 
 def run():
     port = int(os.environ.get('PORT', 8080))
@@ -18,7 +18,7 @@ def keep_alive():
     t.daemon = True
     t.start()
 
-# --- ২. আপনার কনফিগারেশন ডাটা ---
+# --- ২. আপনার কনফিগারেশন ---
 BOT_TOKEN = '8740780011:AAFZxUCXzcUJQzZPUFNJYYbfdKnZAUNI9Fs'
 API_KEY = 'TXVzbXNNYk9BZHdJc3l1WllnYm15UT09'
 DURIAN_USER = 'rafiqmolla7'
@@ -30,13 +30,14 @@ ALLOWED_USERS = {
     8181512467: "Admin", 8164389661: "pc", 6630618306: "Chandon"
 }
 
-# কান্ট্রি লিস্ট আপডেট করা হয়েছে
+# আপনি যে দেশগুলো চেয়েছিলেন এবং স্ক্রিনশটে আসা দেশগুলো সব অ্যাড করা হয়েছে
 COUNTRIES = {
+    "🇺🇦 Ukraine": "ua", "🇸🇸 S. Sudan": "ssd", "🇱🇨 S. Lucia": "lca",
     "🇺🇸 USA": "usa", "🇬🇧 UK": "uk", "🇨🇦 Canada": "ca",
     "🇮🇳 India": "in", "🇧🇩 BD": "bd", "🇷🇺 Russia": "ru",
     "🇲🇾 Malaysia": "my", "🇮🇩 Indonesia": "id",
-    "🇻🇳 Vietnam": "vn", "🇹🇭 Thailand": "th", "🇸🇦 S. Arabia": "sa", 
-    "🇺🇦 Ukraine": "ua", "🇸🇸 S. Sudan": "ssd", "🇱🇨 S. Lucia": "lca"
+    "🇻🇳 Vietnam": "vn", "🇹🇭 Thailand": "th", "🇸🇦 S. Arabia": "sa",
+    "🇸🇱 S. Leone": "sle", "🇩🇿 Algeria": "dza", "🇹🇿 Tanzania": "tza"
 }
 
 DB_FILE = "/tmp/user_stats.json" 
@@ -48,7 +49,39 @@ def get_stats():
     except: pass
     return {}
 
-# --- ৩. কিবোর্ড ও লজিক ---
+def save_stats(stats):
+    try:
+        with open(DB_FILE, "w") as f: json.dump(stats, f)
+    except: pass
+
+# --- ৩. ওটিপি অটো-ফেচিং ফাংশন (নতুন আপগ্রেড) ---
+async def fetch_otp_task(context, chat_id, number, msg_id, user_id):
+    url = f"https://api.durianrcs.com/out/ext_api/getVcode?name={DURIAN_USER}&ApiKey={API_KEY}&mobile={number}&serial=2"
+    
+    for _ in range(30): # ৫ মিনিট পর্যন্ত চেক করবে
+        await asyncio.sleep(10)
+        try:
+            res = requests.get(url, timeout=10).json()
+            if res.get('code') == 200 and res.get('data'):
+                otp = res.get('data')
+                
+                # সাকসেস হলে My ID কাউন্ট বাড়ানো
+                stats = get_stats()
+                uid = str(user_id)
+                stats[uid] = stats.get(uid, 0) + 1
+                save_stats(stats)
+                
+                success_text = f"✅ **OTP Received for** `{number}`\n\n💬 **Code:** `{otp}`"
+                await context.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=success_text, parse_mode='Markdown')
+                
+                # গ্রুপে ওটিপি ফরওয়ার্ড করা
+                await context.bot.send_message(chat_id=GROUP_ID, text=f"🔥 **New OTP Forwarded:**\nNum: `{number}`\nCode: `{otp}`", parse_mode='Markdown')
+                return
+        except: pass
+    
+    await context.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=f"⏳ Timeout! No OTP received for `{number}`. Try again.")
+
+# --- ৪. বাটন ও হ্যান্ডলারস ---
 def main_menu():
     return ReplyKeyboardMarkup([
         [KeyboardButton("📱 Get Number")],
@@ -66,73 +99,4 @@ def country_menu():
         buttons.append(row)
     return InlineKeyboardMarkup(buttons)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    if uid in ALLOWED_USERS:
-        await update.message.reply_text(f"Welcome {ALLOWED_USERS[uid]}! 🌑\nSystem is Online.", reply_markup=main_menu())
-    else:
-        await update.message.reply_text("Unauthorised Access!", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Contact Admin", url="https://t.me/Sojib9690")]]))
-
-async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    uid = update.effective_user.id
-    if uid not in ALLOWED_USERS: return
-
-    if text == "📱 Get Number":
-        await update.message.reply_text("🌍 Select Country (Trying to Match Target):", reply_markup=country_menu())
-    elif text == "💰 Balance":
-        res = requests.get(f"https://api.durianrcs.com/out/ext_api/getBalance?name={DURIAN_USER}&ApiKey={API_KEY}").json()
-        await update.message.reply_text(f"💰 Balance: `{res.get('data', '0')}` Credits", parse_mode='Markdown')
-    elif text == "ℹ️ My ID":
-        stats = get_stats()
-        count = stats.get(str(uid), 0)
-        await update.message.reply_text(f"👤 Name: {ALLOWED_USERS[uid]}\n🆔 ID: `{uid}`\n📩 Total OTP: `{count}`", parse_mode='Markdown')
-    elif text == "📢 OTP Group":
-        await update.message.reply_text("Join OTP Zone:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔗 Join", url="https://t.me/CsDrakOtpZone")]]))
-
-async def callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    if query.data.startswith("iso_"):
-        iso = query.data.split("_")[1]
-        await query.edit_message_text(f"🛰 Requesting **{iso.upper()}** (Checking Stock)...", parse_mode='Markdown')
-        
-        # প্যানেলকে বাধ্য করার জন্য এলাকা (area) এবং অতিরিক্ত প্যারামিটার যোগ করা হয়েছে
-        url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={DURIAN_USER}&ApiKey={API_KEY}&pid={PROJECT_ID}&num=1&serial=2&iso={iso}&area={iso}&is_not_standard=1"
-        
-        try:
-            res = requests.get(url, timeout=10).json()
-            if res.get('code') == 200:
-                number = res.get('data')
-                msg = f"✅ **Selected Country:** {iso.upper()}\n✅ **Number:** `{number}`\n📩 Waiting for OTP..."
-                kb = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🚫 Block", callback_data=f"block_{number}")],
-                    [InlineKeyboardButton("🔄 Try Again", callback_data=f"iso_{iso}")]
-                ])
-                await query.edit_message_text(msg, reply_markup=kb, parse_mode='Markdown')
-            else:
-                # যদি স্টক না থাকে
-                await query.edit_message_text(
-                    f"❌ **{iso.upper()}** স্টক আউট।\nপ্যানেল সার্ভারে এই মুহূর্তে নাম্বার নেই। আবার চেষ্টা করুন।", 
-                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔄 Request Again", callback_data=f"iso_{iso}")]])
-                )
-        except:
-            await query.edit_message_text("❌ সার্ভার কানেকশন এরর!")
-
-# --- ৪. মেইন রানার ---
-async def main():
-    app = Application.builder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
-    app.add_handler(CallbackQueryHandler(callback_query))
-    keep_alive()
-    async with app:
-        await app.initialize()
-        await app.start()
-        await app.updater.start_polling(drop_pending_updates=True)
-        await asyncio.Event().wait()
-
-if __name__ == '__main__':
-    try: asyncio.run(main())
-    except: pass
+async def start(update: Update
