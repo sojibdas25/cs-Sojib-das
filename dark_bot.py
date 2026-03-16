@@ -1,172 +1,103 @@
 import requests
-import asyncio
-import os
-from flask import Flask
-from threading import Thread
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# -------- KEEP ALIVE --------
-app_web = Flask('')
+BOT_TOKEN = "8740780011:AAFZxUCXzcUJQzZPUFNJYYbfdKnZAUNI9Fs"
 
-@app_web.route('/')
-def home():
-    return "BOT RUNNING"
+DURIAN_USERNAME = "rafiqmolla7"
+DURIAN_API_KEY = "TXVzbXNNYk9BZHdJc3l1WllnYm15UT09"
+PROJECT_ID = "0257"
 
-def run():
-    port=int(os.environ.get("PORT",8080))
-    app_web.run(host="0.0.0.0",port=port)
+OTP_GROUP_ID = -1003525081102
 
-def keep_alive():
-    t=Thread(target=run)
-    t.start()
-
-# -------- CONFIG --------
-BOT_TOKEN="PUT_BOT_TOKEN"
-
-API_KEY="PUT_API_KEY"
-DURIAN_USER="PUT_USERNAME"
-PROJECT_ID="PUT_PROJECT_ID"
-
-ALLOWED_USERS={
-6528471341:"Sojib"
+# Allowed Users (Name + ID)
+ALLOWED_USERS = {
+6528471341: "Sojib",
+8081334307: "Sojib Das",
+8181512467: "Admin",
+8164389661: "pc",
+6630618306: "Chandon"
 }
 
-COUNTRIES={
-"🇺🇸 USA":"us",
-"🇹🇭 Thailand":"th",
-"🇮🇳 India":"in",
-"🇷🇺 Russia":"ru",
-"🇳🇬 Nigeria":"ng"
-}
+keyboard = [
+["📱 Get Number"],
+["💰 Balance","🆔 My ID"]
+]
 
-# -------- OTP CHECK --------
-async def check_otp(context,chat_id,msg_id,number,cuy):
+reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-    num=''.join(filter(str.isdigit,str(number)))
+def check_user(user_id):
+    return user_id in ALLOWED_USERS
 
-    url=f"https://api.durianrcs.com/out/ext_api/getVcode?name={DURIAN_USER}&ApiKey={API_KEY}&mobile={num}&serial=2"
 
-    for i in range(60):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-        await asyncio.sleep(10)
+    user_id = update.effective_user.id
 
-        try:
-
-            res=requests.get(url).json()
-
-            if res.get("code")==200 and res.get("data"):
-
-                otp=res.get("data")
-
-                kb=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("🔄 New Number",callback_data=f"get_{cuy}")]]
-                )
-
-                await context.bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=msg_id,
-                text=f"✅ OTP RECEIVED\n\n📱 `{number}`\n🔑 `{otp}`",
-                parse_mode="Markdown",
-                reply_markup=kb)
-
-                return
-
-        except:
-            pass
-
-# -------- MENU --------
-def main_menu():
-
-    return ReplyKeyboardMarkup(
-    [
-    [KeyboardButton("📱 Get Number")]
-    ],
-    resize_keyboard=True)
-
-def country_menu():
-
-    buttons=[]
-
-    for k,v in COUNTRIES.items():
-
-        buttons.append(
-        [InlineKeyboardButton(k,callback_data=f"get_{v}")]
-        )
-
-    return InlineKeyboardMarkup(buttons)
-
-# -------- START --------
-async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
-
-    if update.effective_user.id not in ALLOWED_USERS:
+    if not check_user(user_id):
+        await update.message.reply_text("❌ You are not allowed to use this bot")
         return
 
+    name = ALLOWED_USERS[user_id]
+
     await update.message.reply_text(
-    "🔥 CS DARK OTP BOT",
-    reply_markup=main_menu())
+        f"✅ Welcome {name} to CS Dark SMS Bot",
+        reply_markup=reply_markup
+    )
 
-# -------- MESSAGE --------
-async def handle_msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
-    if update.message.text=="📱 Get Number":
+async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    user_id = update.effective_user.id
+
+    if not check_user(user_id):
+        return
+
+    text = update.message.text
+
+    if text == "🆔 My ID":
+
+        name = ALLOWED_USERS[user_id]
 
         await update.message.reply_text(
-        "🌍 Select Country",
-        reply_markup=country_menu())
+            f"👤 Name: {name}\n🆔 ID: {user_id}"
+        )
 
-# -------- CALLBACK --------
-async def callback_query(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
-    query=update.callback_query
-    await query.answer()
+    elif text == "💰 Balance":
 
-    if query.data.startswith("get_"):
+        url = f"https://api.durianpanel.com/balance?username={DURIAN_USERNAME}&api_key={DURIAN_API_KEY}"
 
-        cuy=query.data.split("_")[1]
+        r = requests.get(url).json()
 
-        await query.edit_message_text("⏳ Getting Number...")
+        balance = r.get("balance","0")
 
-        url=f"https://api.durianrcs.com/out/ext_api/getMobile?name={DURIAN_USER}&ApiKey={API_KEY}&pid={PROJECT_ID}&num=1&serial=2&cuy={cuy}"
+        await update.message.reply_text(f"💰 Balance: {balance}$")
 
-        try:
 
-            res=requests.get(url).json()
+    elif text == "📱 Get Number":
 
-            if res.get("code")==200:
+        url = f"https://api.durianpanel.com/get_number?username={DURIAN_USERNAME}&api_key={DURIAN_API_KEY}&pid={PROJECT_ID}"
 
-                number=res.get("data")
+        r = requests.get(url).json()
 
-                msg=await context.bot.send_message(
-                chat_id=query.message.chat_id,
-                text=f"📱 Number : `{number}`\n⏳ Waiting OTP...",
-                parse_mode="Markdown")
+        if r["status"] == "success":
 
-                asyncio.create_task(
-                check_otp(context,query.message.chat_id,msg.message_id,number,cuy)
-                )
+            number = r["number"]
+            order_id = r["id"]
 
-            else:
+            await update.message.reply_text(
+                f"📱 Number: {number}\n🆔 Order ID: {order_id}"
+            )
 
-                await query.edit_message_text("❌ Number Not Available")
+        else:
 
-        except:
+            await update.message.reply_text("❌ Number not available")
 
-            await query.edit_message_text("❌ API Error")
 
-# -------- MAIN --------
-async def main():
+app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    keep_alive()
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.TEXT, message))
 
-    app=Application.builder().token(BOT_TOKEN).build()
-
-    app.add_handler(CommandHandler("start",start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,handle_msg))
-    app.add_handler(CallbackQueryHandler(callback_query))
-
-    await app.run_polling()
-
-if __name__=="__main__":
-
-    asyncio.run(main())
+app.run_polling()
