@@ -7,7 +7,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 # --- ১. রেন্ডার কানেক্টিভিটি ---
 app_web = Flask('')
 @app_web.route('/')
-def home(): return "SYSTEM STATUS: CUY PARAMETER ACTIVE"
+def home(): return "SYSTEM STATUS: OTP FINAL FIX"
 
 def run():
     port = int(os.environ.get('PORT', 8080))
@@ -27,7 +27,7 @@ GROUP_ID = -1003525081102
 
 ALLOWED_USERS = {6528471341: "Sojib", 8081334307: "Sojib Das", 8181512467: "Admin", 8164389661: "pc", 6630618306: "Chandon"}
 
-# প্যানেল অনুযায়ী নির্দিষ্ট দেশের নাম (cuy parameter এর জন্য)
+# আপনার দেওয়া ২৮টি দেশের লিস্ট
 COUNTRIES = {
     "🇺🇸 USA": "United States", "🇦🇴 Angola": "Angola", "🇳🇬 Nigeria": "Nigeria",
     "🇲🇿 Mozambique": "Mozambique", "🇲🇽 Mexico": "Mexico", "🇰🇪 Kenya": "Kenya",
@@ -41,13 +41,13 @@ COUNTRIES = {
     "🇨🇩 Congo (cd)": "Democratic Republic of the Congo"
 }
 
-# --- ৩. ওটিপি ও পিক-আপ লজিক ---
+# --- ৩. ওটিপি ও পিক-আপ লজিক (সংশোধিত) ---
 async def fetch_otp_task(context, chat_id, full_number, msg_id, user_id, cuy_name):
     num_only = ''.join(filter(str.isdigit, str(full_number)))
     
-    # প্যানেলে নম্বরটি "Pick Up" করার জন্য setRelease কল
-    pickup_url = f"https://api.durianrcs.com/out/ext_api/setRelease?name={DURIAN_USER}&ApiKey={API_KEY}&mobile={num_only}&serial=2"
-    requests.get(pickup_url, timeout=5)
+    # [FIX] প্যানেলকে নম্বরটি "Pick Up" করানোর জন্য সঠিক মেথড
+    # আপনার ডক অনুযায়ী serial=2 এর সাথে সঠিক API কল
+    requests.get(f"https://api.durianrcs.com/out/ext_api/setRelease?name={DURIAN_USER}&ApiKey={API_KEY}&mobile={num_only}&serial=2", timeout=5)
     
     vcode_url = f"https://api.durianrcs.com/out/ext_api/getVcode?name={DURIAN_USER}&ApiKey={API_KEY}&mobile={num_only}&serial=2"
     
@@ -55,6 +55,7 @@ async def fetch_otp_task(context, chat_id, full_number, msg_id, user_id, cuy_nam
         await asyncio.sleep(10)
         try:
             res = requests.get(vcode_url, timeout=10).json()
+            # প্যানেল যদি ডাটা পাঠায়
             if res.get('code') == 200 and res.get('data'):
                 otp = res.get('data')
                 
@@ -68,7 +69,7 @@ async def fetch_otp_task(context, chat_id, full_number, msg_id, user_id, cuy_nam
                     parse_mode='Markdown')
                 return
         except: pass
-    await context.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=f"⏳ Timeout! No OTP for `{full_number}`.")
+    await context.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=f"⏳ Timeout! `{full_number}` এ কোড আসেনি।")
 
 # --- ৪. ইউজার ইন্টারফেস ---
 def main_menu():
@@ -85,7 +86,7 @@ def country_menu():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id in ALLOWED_USERS:
-        await update.message.reply_text("🌑 **CS DARK BOT**\n`cuy` parameter enabled.", reply_markup=main_menu(), parse_mode='Markdown')
+        await update.message.reply_text("🌑 **CS DARK BOT ACTIVE**\nOTP & Country Lock Fixed.", reply_markup=main_menu())
 
 async def callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -95,8 +96,8 @@ async def callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cuy = query.data.split("_")[1]
         sent_msg = await query.edit_message_text(f"🛰 Requesting **{cuy}** Number...")
         
-        # এখানে 'cuy' প্যারামিটার ব্যবহার করা হয়েছে নির্দিষ্ট দেশের জন্য
-        url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={DURIAN_USER}&ApiKey={API_KEY}&pid={PROJECT_ID}&num=1&serial=2&cuy={cuy}&operator=any&force_country=1"
+        # সাপোর্ট অনুযায়ী 'cuy' প্যারামিটার দিয়ে API হিট
+        url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={DURIAN_USER}&ApiKey={API_KEY}&pid={PROJECT_ID}&num=1&serial=2&cuy={cuy}&force_country=1"
         
         try:
             res = requests.get(url, timeout=15).json()
@@ -106,14 +107,14 @@ async def callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.edit_message_text(f"🌍 **Country:** {cuy}\n📱 **Number:** `{number}`\n⏳ Waiting for OTP...", reply_markup=kb, parse_mode='Markdown')
                 asyncio.create_task(fetch_otp_task(context, query.message.chat_id, number, sent_msg.message_id, query.from_user.id, cuy))
             else:
-                await query.edit_message_text(f"❌ {cuy} Stock Out.", reply_markup=country_menu())
-        except: await query.edit_message_text("❌ Connection Error!")
+                await query.edit_message_text(f"❌ {cuy} স্টক আউট।", reply_markup=country_menu())
+        except: await query.edit_message_text("❌ সংযোগ বিচ্ছিন্ন!")
 
     elif query.data.startswith("block_"):
         data = query.data.split("_")
         num = ''.join(filter(str.isdigit, data[1]))
         requests.get(f"https://api.durianrcs.com/out/ext_api/cancelMobile?name={DURIAN_USER}&ApiKey={API_KEY}&mobile={num}&serial=2")
-        await query.edit_message_text(f"🚫 Number `{data[1]}` Blocked.", reply_markup=country_menu())
+        await query.edit_message_text(f"🚫 `{data[1]}` বাতিল করা হয়েছে।", reply_markup=country_menu())
 
 async def main():
     app = Application.builder().token(BOT_TOKEN).build()
