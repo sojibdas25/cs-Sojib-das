@@ -1,13 +1,13 @@
-import logging, requests, asyncio, sys, json, os
+import logging, requests, asyncio, sys, json, os, time
 from flask import Flask
 from threading import Thread
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
-# --- রেন্ডার কানেক্টিভিটি ---
+# --- ১. রেন্ডার কানেক্টিভিটি (২৪ ঘণ্টা অনলাইন রাখার জন্য) ---
 app_web = Flask('')
 @app_web.route('/')
-def home(): return "CS DARK SMS PRO is Running!"
+def home(): return "CS DARK SMS PRO - SYSTEM STABLE!"
 
 def run():
     port = int(os.environ.get('PORT', 8080))
@@ -18,7 +18,7 @@ def keep_alive():
     t.daemon = True
     t.start()
 
-# --- কনফিগারেশন ---
+# --- ২. কনফিগারেশন (আপনার তথ্য অনুযায়ী) ---
 BOT_TOKEN = '8740780011:AAFZxUCXzcUJQzZPUFNJYYbfdKnZAUNI9Fs'
 API_KEY = 'TXVzbXNNYk9BZHdJc3l1WllnYm15UT09'
 DURIAN_USER = 'rafiqmolla7'
@@ -27,10 +27,10 @@ GROUP_ID = -1003525081102
 
 ALLOWED_USERS = {
     6528471341: "Sojib", 8081334307: "Sojib Das",
-    8181512467: "Admin", 8164389661: "pc", 6630618306 : "Chandon"
+    8181512467: "Admin", 8164389661: "pc", 6630618306: "Chandon"
 }
 
-# নতুন দেশগুলো এখানে অ্যাড করা হয়েছে
+# নতুন দেশসহ তালিকা
 COUNTRIES = {
     "🇺🇸 USA": "usa", "🇬🇧 UK": "uk", "🇨🇦 Canada": "ca",
     "🇮🇳 India": "in", "🇧🇩 BD": "bd", "🇷🇺 Russia": "ru",
@@ -39,7 +39,7 @@ COUNTRIES = {
     "🇺🇦 Ukraine": "ua", "🇸🇸 S. Sudan": "ssd", "🇱🇨 S. Lucia": "lca"
 }
 
-DB_FILE = "/tmp/user_stats.json"
+DB_FILE = "/tmp/user_stats.json" # রেন্ডার স্টোরেজ ফিক্স
 
 def get_stats():
     try:
@@ -48,7 +48,12 @@ def get_stats():
     except: pass
     return {}
 
-# --- কিবোর্ডস ---
+def save_stats(stats):
+    try:
+        with open(DB_FILE, "w") as f: json.dump(stats, f)
+    except: pass
+
+# --- ৩. কিবোর্ড ও হ্যান্ডলারস ---
 def main_menu():
     return ReplyKeyboardMarkup([
         [KeyboardButton("📱 Get Number")],
@@ -69,7 +74,7 @@ def country_menu():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     if uid in ALLOWED_USERS:
-        await update.message.reply_text(f"Welcome {ALLOWED_USERS[uid]}! 🌑\nSystem Upgraded & Online.", reply_markup=main_menu())
+        await update.message.reply_text(f"Welcome {ALLOWED_USERS[uid]}! 🌑\nSystem Upgraded & Fully Stable.", reply_markup=main_menu())
     else:
         await update.message.reply_text("Unauthorised Access!", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Contact Admin", url="https://t.me/Sojib9690")]]))
 
@@ -79,45 +84,48 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if uid not in ALLOWED_USERS: return
 
     if text == "📱 Get Number":
-        await update.message.reply_text("🌍 Select Country (Try multiple times if busy):", reply_markup=country_menu())
+        await update.message.reply_text("🌍 Select Country (Wait for Stock):", reply_markup=country_menu())
     elif text == "💰 Balance":
         res = requests.get(f"https://api.durianrcs.com/out/ext_api/getBalance?name={DURIAN_USER}&ApiKey={API_KEY}").json()
         await update.message.reply_text(f"💰 Balance: `{res.get('data', '0')}` Credits", parse_mode='Markdown')
     elif text == "ℹ️ My ID":
         stats = get_stats()
         count = stats.get(str(uid), 0)
-        await update.message.reply_text(f"👤 Name: {ALLOWED_USERS[uid]}\n🆔 ID: `{uid}`\n📩 Total OTP: `{count}`", parse_mode='Markdown')
+        await update.message.reply_text(f"👤 Name: {ALLOWED_USERS[uid]}\n🆔 ID: `{uid}`\n📩 Successful OTP: `{count}`", parse_mode='Markdown')
     elif text == "📢 OTP Group":
-        await update.message.reply_text("Join OTP Zone:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔗 Join", url="https://t.me/CsDrakOtpZone")]]))
+        await update.message.reply_text("Join Our Official OTP Zone:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔗 Join Group", url="https://t.me/CsDrakOtpZone")]]))
 
 async def callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
     if query.data.startswith("iso_"):
-        iso = query.data.split("_")[1]
-        await query.edit_message_text(f"🛰 Requesting {iso.upper()} Number...\n(Please wait, trying to fetch from stock)")
+        iso = query.data.split("_")[1].lower()
+        await query.edit_message_text(f"🛰 Requesting **{iso.upper()}** Number...\n(Filtering Server for Correct Country)", parse_mode='Markdown')
         
-        url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={DURIAN_USER}&ApiKey={API_KEY}&pid={PROJECT_ID}&num=1&serial=2&iso={iso}"
+        # ডুরিয়ান প্যানেলকে নির্দিষ্ট দেশ দিতে বাধ্য করার নতুন এপিআই লিঙ্ক
+        url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={DURIAN_USER}&ApiKey={API_KEY}&pid={PROJECT_ID}&num=1&serial=2&iso={iso}&is_not_standard=1"
         
         try:
-            res = requests.get(url).json()
+            res = requests.get(url, timeout=10).json()
             if res.get('code') == 200:
                 number = res.get('data')
-                msg = f"✅ **Country:** {iso.upper()}\n✅ **Number:** `{number}`\n📩 Waiting for OTP..."
-                await query.edit_message_text(msg, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup([
+                msg = f"✅ **Country Match:** {iso.upper()}\n✅ **Number:** `{number}`\n📩 Waiting for OTP..."
+                kb = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🚫 Block", callback_data=f"block_{number}")],
                     [InlineKeyboardButton("🔄 Request Again", callback_data=f"iso_{iso}")]
-                ]))
+                ])
+                await query.edit_message_text(msg, reply_markup=kb, parse_mode='Markdown')
             else:
-                # নাম্বার না থাকলে এই মেসেজটি আসবে
+                # স্টক না থাকলে বা এরর হলে
                 await query.edit_message_text(
-                    f"❌ **{iso.upper()}** এ বর্তমানে নাম্বার নেই।\nসার্ভার বিজি থাকতে পারে, দয়া করে 'Try Again' বাটনে ক্লিক করে চেষ্টা করতে থাকুন। 😊", 
+                    f"❌ **{iso.upper()}** এ বর্তমানে স্টক নেই।\nডুরিয়ান প্যানেল সার্ভার ব্যস্ত। দয়া করে আবার চেষ্টা করুন।", 
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔄 Try Again", callback_data=f"iso_{iso}")]])
                 )
-        except:
-            await query.edit_message_text("❌ Connection Error! Try again later.")
+        except Exception as e:
+            await query.edit_message_text(f"❌ সার্ভার এরর! দয়া করে কিছুক্ষণ পর চেষ্টা করুন।")
 
-# --- রানার ---
+# --- ৪. রানার ---
 async def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
