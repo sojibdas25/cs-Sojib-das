@@ -108,21 +108,31 @@ async def callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     if query.data.startswith("iso_"):
-        # ইউজার যে দেশে ক্লিক করেছে তার কোড বড় হাতের অক্ষরে রূপান্তর (যেমন: BD, IN)
-        iso = query.data.split("_")[1].upper()
+        # ১. ইউজার যে দেশে ক্লিক করেছে তার কোড নেওয়া (যেমন: ua, bd, in)
+        iso = query.data.split("_")[1]
         
-        await query.edit_message_text(f"🛰 Requesting {iso} Number...")
+        await query.edit_message_text(f"🛰 Requesting {iso.upper()} Number...")
         
-        # প্যানেলকে নির্দিষ্ট দেশ দিতে বাধ্য করতে iso={iso} নিশ্চিত করা হয়েছে
+        # ২. ডুরিয়ান এপিআই লিঙ্ক (এখানে নির্দিষ্টভাবে iso={iso} প্যারামিটার যোগ করা হয়েছে)
+        # এটি আপনার প্যানেলের 'All Countries' সেটিংসকে বন্ধ করে নির্দিষ্ট দেশ দিতে বাধ্য করবে
         url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={DURIAN_USER}&ApiKey={API_KEY}&pid={PROJECT_ID}&num=1&serial=2&iso={iso}"
         
         try:
             res = requests.get(url).json()
             if res.get('code') == 200:
                 number = res.get('data')
-                msg = f"✅ **Country:** {iso}\n✅ **Number:** `{number}`\n📩 Waiting for OTP..."
+                # ৩. নির্দিষ্ট দেশসহ কনফার্মেশন মেসেজ
+                msg = f"✅ **Country:** {iso.upper()}\n✅ **Number:** `{number}`\n📩 Waiting for OTP..."
                 kb = InlineKeyboardMarkup([
                     [InlineKeyboardButton("🚫 Block Number", callback_data=f"block_{number}")],
+                    [InlineKeyboardButton("🔄 Request Again", callback_data=f"iso_{iso}")]
+                ])
+                await query.edit_message_text(msg, reply_markup=kb, parse_mode='Markdown')
+            else:
+                # যদি ওই দেশে নাম্বার না থাকে তবে প্যানেলের অরিজিনাল মেসেজ দেখাবে
+                await query.edit_message_text(f"❌ Error: {res.get('msg')} (In {iso.upper()})", reply_markup=country_menu())
+        except Exception as e:
+            await query.edit_message_text(f"❌ Connection Error: {str(e)}")
                     [InlineKeyboardButton("🔄 Request Again", callback_data=f"iso_{iso.lower()}")]
                 ])
                 await query.edit_message_text(msg, reply_markup=kb, parse_mode='Markdown')
