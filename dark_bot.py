@@ -4,10 +4,10 @@ from threading import Thread
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
-# --- ১. রেন্ডার কানেক্টিভিটি ---
+# --- ১. সার্ভার কানেক্টিভিটি ---
 app_web = Flask('')
 @app_web.route('/')
-def home(): return "SYSTEM STATUS: OTP ENGINE ACTIVE"
+def home(): return "OTP ENGINE: AUTO-FILTER & OTP FIXED"
 
 def run():
     port = int(os.environ.get('PORT', 8080))
@@ -27,6 +27,15 @@ GROUP_ID = -1003525081102
 
 ALLOWED_USERS = {6528471341: "Sojib", 8081334307: "Sojib Das", 8181512467: "Admin", 8164389661: "pc", 6630618306: "Chandon"}
 
+# ২৮টি দেশের কান্ট্রি কোড ও প্রিফিক্স (ভুল দেশ আটকানোর গার্ড)
+COUNTRY_DB = {
+    "us": "1", "ao": "244", "ng": "234", "mz": "258", "mx": "52", "ke": "254",
+    "th": "66", "cm": "237", "eg": "20", "sn": "221", "ly": "218", "in": "91",
+    "ru": "7", "cg": "242", "af": "93", "mr": "222", "tg": "228", "tn": "216",
+    "ar": "54", "dz": "213", "mw": "265", "zm": "260", "ve": "58", "ug": "256",
+    "gh": "233", "et": "251", "do": "1", "cd": "243"
+}
+
 COUNTRIES = {
     "🇺🇸 USA": "us", "🇦🇴 Angola": "ao", "🇳🇬 Nigeria": "ng", "🇲🇿 Mozambique": "mz", "🇲🇽 Mexico": "mx", 
     "🇰🇪 Kenya": "ke", "🇹🇭 Thailand": "th", "🇨🇲 Cameroon": "cm", "🇪🇬 Egypt": "eg", "🇸🇳 Senegal": "sn", 
@@ -36,41 +45,41 @@ COUNTRIES = {
     "🇪🇹 Ethiopia": "et", "🇩🇴 Dominican": "do", "🇨🇩 Congo (cd)": "cd"
 }
 
-# --- ৩. ওটিপি ইঞ্জিন (নিখুঁত লজিক) ---
+# --- ৩. ওটিপি ও অটো-ফিল্টার লজিক ---
 async def fetch_otp_task(context, chat_id, full_number, msg_id, user_id, iso_code):
     num_only = ''.join(filter(str.isdigit, str(full_number)))
+    expected_prefix = COUNTRY_DB.get(iso_code, "")
     
-    # প্যানেলকে সিগন্যাল দেওয়া যে নম্বর নেওয়া হয়েছে
-    requests.get(f"https://api.durianrcs.com/out/ext_api/setRelease?name={DURIAN_USER}&ApiKey={API_KEY}&mobile={num_only}&serial=2", timeout=5)
+    # [FILTER] ভুল দেশের নাম্বার আসলে অটো-ক্যান্সেল
+    if expected_prefix and not num_only.startswith(expected_prefix):
+        requests.get(f"https://api.durianrcs.com/out/ext_api/cancelMobile?name={DURIAN_USER}&ApiKey={API_KEY}&mobile={num_only}&serial=2")
+        await context.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=f"⚠️ ভুল দেশ ({num_only[:3]}) এসেছে। অটো-ক্যান্সেল করা হয়েছে। আবার ট্রাই করুন।")
+        return
+
+    # [PICKUP] নম্বর কনফার্ম করা
+    requests.get(f"https://api.durianrcs.com/out/ext_api/setRelease?name={DURIAN_USER}&ApiKey={API_KEY}&mobile={num_only}&serial=2")
     
-    # ওটিপি চেক করার URL
     vcode_url = f"https://api.durianrcs.com/out/ext_api/getVcode?name={DURIAN_USER}&ApiKey={API_KEY}&mobile={num_only}&serial=2"
     
-    for _ in range(120): # ২০ মিনিট পর্যন্ত চেক করবে (বড় ওটিপি টাইমআউট প্রতিরোধে)
+    for _ in range(120): # ২০ মিনিট সময়
         await asyncio.sleep(10)
         try:
-            response = requests.get(vcode_url, timeout=10)
-            res_data = response.json()
-            
-            # আপনার প্যানেল ওটিপি দিলে কোড ২০০ থাকে
-            if res_data.get('code') == 200:
-                otp = res_data.get('data')
-                if otp and otp != "none": # ওটিপি পেলে
+            res = requests.get(vcode_url, timeout=10).json()
+            if res.get('code') == 200 and res.get('data'):
+                otp = str(res.get('data'))
+                if otp.lower() != "none" and len(otp) > 1:
                     kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔄 Get New Number", callback_data=f"get_{iso_code}")]])
                     await context.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, 
                         text=f"✅ **OTP Received!**\n\n📱 **Num:** `{full_number}`\n🔑 **OTP:** `{otp}`", 
                         reply_markup=kb, parse_mode='Markdown')
                     
                     await context.bot.send_message(chat_id=GROUP_ID, 
-                        text=f"🔥 **New OTP Alert!**\n🔑 Code: `{otp}`\n📱 Num: `{full_number}`\n👤 User: {ALLOWED_USERS.get(user_id, 'Admin')}", 
-                        parse_mode='Markdown')
+                        text=f"🔥 **OTP Alert!**\n🔑 Code: `{otp}`\n📱 Num: `{full_number}`\n👤 User: {ALLOWED_USERS.get(user_id)}")
                     return
-        except Exception as e:
-            print(f"Error fetching OTP: {e}")
-            
-    await context.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=f"⏳ Timeout! `{full_number}` এ ওটিপি আসেনি।")
+        except: pass
+    await context.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=f"⏳ Timeout! `{full_number}` এ কোড আসেনি।")
 
-# --- ৪. অন্যান্য হ্যান্ডলারস ---
+# --- ৪. হ্যান্ডলারস ---
 def main_menu():
     return ReplyKeyboardMarkup([[KeyboardButton("📱 Get Number")], [KeyboardButton("💰 Balance"), KeyboardButton("ℹ️ My ID")]], resize_keyboard=True)
 
@@ -85,7 +94,7 @@ def country_menu():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id in ALLOWED_USERS:
-        await update.message.reply_text("🌑 **CS DARK BOT**\nOTP Engine Re-Synced.", reply_markup=main_menu())
+        await update.message.reply_text("🌑 **CS DARK BOT**\nFilter & OTP Logic Updated.", reply_markup=main_menu())
 
 async def callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -105,14 +114,14 @@ async def callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.edit_message_text(f"🌍 **Country:** {iso.upper()}\n📱 **Num:** `{number}`\n⏳ Waiting for OTP...", reply_markup=kb, parse_mode='Markdown')
                 asyncio.create_task(fetch_otp_task(context, query.message.chat_id, number, sent_msg.message_id, query.from_user.id, iso))
             else:
-                await query.edit_message_text(f"❌ {iso.upper()} Stock Out.", reply_markup=country_menu())
-        except: await query.edit_message_text("❌ Connection Error!")
+                await query.edit_message_text(f"❌ {iso.upper()} স্টক আউট।", reply_markup=country_menu())
+        except: await query.edit_message_text("❌ সংযোগ ত্রুটি!")
 
     elif query.data.startswith("block_"):
         data = query.data.split("_")
         num = ''.join(filter(str.isdigit, data[1]))
         requests.get(f"https://api.durianrcs.com/out/ext_api/cancelMobile?name={DURIAN_USER}&ApiKey={API_KEY}&mobile={num}&serial=2")
-        await query.edit_message_text(f"🚫 `{data[1]}` Canceled.", reply_markup=country_menu())
+        await query.edit_message_text(f"🚫 `{data[1]}` বাতিল করা হয়েছে।", reply_markup=country_menu())
 
 async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text, uid = update.message.text, update.effective_user.id
@@ -121,7 +130,6 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "💰 Balance":
         res = requests.get(f"https://api.durianrcs.com/out/ext_api/getBalance?name={DURIAN_USER}&ApiKey={API_KEY}").json()
         await update.message.reply_text(f"💰 Balance: `{res.get('data', '0')}` Credits", parse_mode='Markdown')
-    elif text == "ℹ️ My ID": await update.message.reply_text(f"👤 Name: {ALLOWED_USERS.get(uid)}\n🆔 ID: `{uid}`", parse_mode='Markdown')
 
 async def main():
     app = Application.builder().token(BOT_TOKEN).build()
