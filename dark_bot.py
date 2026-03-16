@@ -103,26 +103,34 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "📱 Get Number":
         await update.message.reply_text("🌍 Select Country to Get Fast Number:", reply_markup=country_menu())
-    elif text == "💰 Balance":
-        url = f"https://api.durianrcs.com/out/ext_api/getBalance?name={DURIAN_USER}&ApiKey={API_KEY}"
-        res = requests.get(url).json()
-        await update.message.reply_text(f"💰 Balance: `{res.get('data', '0')}` Credits", parse_mode='Markdown')
-    elif text == "ℹ️ My ID":
-        stats = get_stats()
-        count = stats.get(str(uid), 0)
-        await update.message.reply_text(f"👤 Name: {ALLOWED_USERS[uid]}\n🆔 ID: `{uid}`\n📩 Total OTP Received: `{count}`", parse_mode='Markdown')
-    elif text == "📢 OTP Group":
-        group_kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔗 Join OTP Group", url="https://t.me/CsDrakOtpZone")]])
-        await update.message.reply_text("Join our official OTP Forwarding group:", reply_markup=group_kb)
-
 async def callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    
     if query.data.startswith("iso_"):
-        iso = query.data.split("_")[1]
-        await query.edit_message_text(f"🛰 Requesting {iso.upper()} Number...")
+        # ইউজার যে দেশে ক্লিক করেছে তার কোড বড় হাতের অক্ষরে রূপান্তর (যেমন: BD, IN)
+        iso = query.data.split("_")[1].upper()
+        
+        await query.edit_message_text(f"🛰 Requesting {iso} Number...")
+        
+        # প্যানেলকে নির্দিষ্ট দেশ দিতে বাধ্য করতে iso={iso} নিশ্চিত করা হয়েছে
         url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={DURIAN_USER}&ApiKey={API_KEY}&pid={PROJECT_ID}&num=1&serial=2&iso={iso}"
-        res = requests.get(url).json()
+        
+        try:
+            res = requests.get(url).json()
+            if res.get('code') == 200:
+                number = res.get('data')
+                msg = f"✅ **Country:** {iso}\n✅ **Number:** `{number}`\n📩 Waiting for OTP..."
+                kb = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🚫 Block Number", callback_data=f"block_{number}")],
+                    [InlineKeyboardButton("🔄 Request Again", callback_data=f"iso_{iso.lower()}")]
+                ])
+                await query.edit_message_text(msg, reply_markup=kb, parse_mode='Markdown')
+            else:
+                # যদি ওই দেশে নাম্বার না থাকে তবে প্যানেলের মেসেজ দেখাবে
+                await query.edit_message_text(f"❌ Error: {res.get('msg')} (In {iso})", reply_markup=country_menu())
+        except Exception as e:
+            await query.edit_message_text(f"❌ Connection Error: {str(e)}")
         if res.get('code') == 200:
             number = res.get('data')
             msg = f"✅ **Number:** `{number}`\n📩 Waiting for OTP..."
