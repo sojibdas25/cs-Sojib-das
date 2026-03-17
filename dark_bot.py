@@ -62,8 +62,16 @@ async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(ADMIN_ID,f"🚨 New User\n{user} | {name}")
 
     if user not in ALLOWED_USERS:
-        await update.message.reply_text("❌ Access Denied")
-        return
+    keyboard = [
+        [InlineKeyboardButton("📩 Contact Admin", url="https://t.me/Sojib9690")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        f"🚫 Access Denied!\n\n🆔 Your ID: {user}\n\n⏳ Admin approval required.",
+        reply_markup=reply_markup
+    )
+    return
 
     await update.message.reply_text(f"✅ Welcome {ALLOWED_USERS[user]}", reply_markup=menu)
 
