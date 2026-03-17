@@ -57,10 +57,6 @@ async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
     user = update.effective_user.id
     name = update.effective_user.first_name
 
-    if user not in SEEN_USERS:
-        SEEN_USERS.add(user)
-        await context.bot.send_message(ADMIN_ID,f"🚨 New User\n{user} | {name}")
-
     if user not in ALLOWED_USERS:
     keyboard = [
         [InlineKeyboardButton("📩 Contact Admin", url="https://t.me/Sojib9690")]
