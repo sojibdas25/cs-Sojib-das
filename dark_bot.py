@@ -1,21 +1,30 @@
-import requests
 import asyncio
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from flask import Flask
+from threading import Thread
+from telegram import (
+    Update,
+    ReplyKeyboardMarkup,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton
+)
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters
+)
 
 # ================= KEEP ALIVE =================
 
-from flask import Flask
-from threading import Thread
+web = Flask(__name__)
 
-app_web = Flask(__name__)
-
-@app_web.route('/')
+@web.route("/")
 def home():
     return "Bot Running"
 
 def run():
-    app_web.run(host="0.0.0.0", port=10000)
+    web.run(host="0.0.0.0", port=10000)
 
 def keep_alive():
     t = Thread(target=run)
@@ -26,16 +35,16 @@ def keep_alive():
 BOT_TOKEN = "8740780011:AAHbnPoUV_4C6JGULWVQgOAvbvW96gkqEYo"
 
 API_KEY = "TXVzbXNNYk9BZHdJc3l1WllnYm15UT09"
+
 USERNAME = "rafiqmolla7"
+
 PID = "0257"
 
-BASE_URL = "https://api.durianrcs.com/out/ext_api"
+BASE_URL = "https://api.durianrcs.com"
 
 ADMIN_ID = 8081334307
 
-GROUP_ID = -1003525081102
-
-# ================= USERS =================
+SUPPORT_LINK = "https://t.me/Sojib9690"
 
 ALLOWED_USERS = {
 6528471341:"Sojib",
@@ -45,186 +54,102 @@ ALLOWED_USERS = {
 6630618306:"Chandon"
 }
 
-sessions = {}
-
-# ================= KEYBOARD =================
+# ================= MENU =================
 
 keyboard = [
-["📱 Get Number"],
-["📩 Check OTP","❌ Cancel"],
-["💰 Balance"]
+["📊 Status","👥 Users"],
+["⚙️ Settings","📞 Support"]
 ]
 
-markup = ReplyKeyboardMarkup(keyboard,resize_keyboard=True)
+menu = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 # ================= START =================
 
 async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
-    user_id = update.effective_user.id
+    user = update.effective_user.id
 
-    if user_id not in ALLOWED_USERS:
+    if user not in ALLOWED_USERS:
 
         button = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Support Admin",url="https://t.me/8081334307")]]
+        [[InlineKeyboardButton("Support Admin",url=SUPPORT_LINK)]]
         )
 
         await update.message.reply_text(
-"""বিশ্বাসঘাতককে আবার বিশ্বাস করা
-আর অন্ধকার শহরে আয়না বিক্রি করা একই কথা..
+"""Access Denied
 
-ধন্যবাদ
-🥱☠""",
+Contact admin to get access.""",
 reply_markup=button)
 
         return
 
-    name = ALLOWED_USERS[user_id]
+    name = ALLOWED_USERS[user]
 
     await update.message.reply_text(
-f"Welcome {name}\nOTP BOT READY",
-reply_markup=markup)
+f"Welcome {name}\nBot is ready.",
+reply_markup=menu)
 
-# ================= BALANCE =================
+# ================= SUPPORT =================
 
-async def balance(update:Update):
+async def support(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
-    url=f"{BASE_URL}/getUserInfo?name={USERNAME}&ApiKey={API_KEY}"
+    button = InlineKeyboardMarkup(
+    [[InlineKeyboardButton("Open Support",url=SUPPORT_LINK)]]
+    )
 
-    r=requests.get(url).json()
+    await update.message.reply_text(
+"Click the button below",
+reply_markup=button)
 
-    if r["code"]==200:
+# ================= USER LIST =================
 
-        bal=r["data"]["money"]
+async def users(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
-        await update.message.reply_text(f"Balance: {bal}")
-
-# ================= GET NUMBER =================
-
-async def get_number(update:Update,context:ContextTypes.DEFAULT_TYPE):
-
-    user=update.effective_user.id
-
-    url=f"{BASE_URL}/getMobile?name={USERNAME}&ApiKey={API_KEY}&pid={PID}&cuy=SS"
-
-    r=requests.get(url).json()
-
-    if r["code"]==200:
-
-        number=r["data"]
-
-        sessions[user]=number
-
-        await update.message.reply_text(
-        f"Number: {number}\nWaiting OTP..."
-        )
-
-        asyncio.create_task(auto_check(update,context,number))
-
-    else:
-
-        await update.message.reply_text("No number available")
-
-# ================= AUTO OTP =================
-
-async def auto_check(update,context,number):
-
-    for i in range(30):
-
-        await asyncio.sleep(5)
-
-        url=f"{BASE_URL}/getMessage?name={USERNAME}&ApiKey={API_KEY}&phone={number}"
-
-        r=requests.get(url).json()
-
-        if r["code"]==200:
-
-            otp=r["data"]
-
-            text=f"Number: {number}\nOTP: {otp}"
-
-            await update.message.reply_text(text)
-
-            await context.bot.send_message(
-            chat_id=GROUP_ID,
-            text=text)
-
-            return
-
-# ================= CHECK OTP =================
-
-async def check_otp(update:Update):
-
-    user=update.effective_user.id
-
-    if user not in sessions:
-
-        await update.message.reply_text("No active number")
-
+    if update.effective_user.id != ADMIN_ID:
         return
 
-    number=sessions[user]
+    text="Allowed Users\n\n"
 
-    url=f"{BASE_URL}/getMessage?name={USERNAME}&ApiKey={API_KEY}&phone={number}"
+    for uid,name in ALLOWED_USERS.items():
 
-    r=requests.get(url).json()
+        text+=f"{name} - {uid}\n"
 
-    if r["code"]==200:
+    await update.message.reply_text(text)
 
-        otp=r["data"]
-
-        await update.message.reply_text(f"OTP: {otp}")
-
-# ================= CANCEL =================
-
-async def cancel(update:Update):
-
-    user=update.effective_user.id
-
-    if user not in sessions:
-
-        await update.message.reply_text("No active number")
-
-        return
-
-    number=sessions[user]
-
-    url=f"{BASE_URL}/cancelMobile?name={USERNAME}&ApiKey={API_KEY}&phone={number}"
-
-    requests.get(url)
-
-    del sessions[user]
-
-    await update.message.reply_text("Number cancelled")
-
-# ================= ADMIN =================
+# ================= ADD USER =================
 
 async def adduser(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     if update.effective_user.id != ADMIN_ID:
         return
 
-    user_id=int(context.args[0])
-    name=context.args[1]
+    uid=int(context.args[0])
+    name=" ".join(context.args[1:])
 
-    ALLOWED_USERS[user_id]=name
+    ALLOWED_USERS[uid]=name
 
-    await update.message.reply_text(f"User Added: {name}")
+    await update.message.reply_text(
+f"User Added: {name}"
+)
+
+# ================= REMOVE USER =================
 
 async def removeuser(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     if update.effective_user.id != ADMIN_ID:
         return
 
-    user_id=int(context.args[0])
+    uid=int(context.args[0])
 
-    if user_id in ALLOWED_USERS:
+    if uid in ALLOWED_USERS:
 
-        del ALLOWED_USERS[user_id]
+        del ALLOWED_USERS[uid]
 
-        await update.message.reply_text("User removed")
+        await update.message.reply_text(
+"User Removed"
+)
 
-# ================= HANDLER =================
+# ================= MESSAGE HANDLER =================
 
 async def handle(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
@@ -235,21 +160,25 @@ async def handle(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     text=update.message.text
 
-    if text=="📱 Get Number":
-        await get_number(update,context)
+    if text=="📊 Status":
 
-    elif text=="📩 Check OTP":
-        await check_otp(update)
+        await update.message.reply_text("Bot Running")
 
-    elif text=="❌ Cancel":
-        await cancel(update)
+    elif text=="👥 Users":
 
-    elif text=="💰 Balance":
-        await balance(update)
+        await users(update,context)
+
+    elif text=="⚙️ Settings":
+
+        await update.message.reply_text("Settings panel")
+
+    elif text=="📞 Support":
+
+        await support(update,context)
 
 # ================= MAIN =================
 
-app=ApplicationBuilder().token(BOT_TOKEN).build()
+app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 app.add_handler(CommandHandler("start",start))
 app.add_handler(CommandHandler("adduser",adduser))
