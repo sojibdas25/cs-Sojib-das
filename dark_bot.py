@@ -1,6 +1,7 @@
 import asyncio
 from flask import Flask
 from threading import Thread
+
 from telegram import (
     Update,
     ReplyKeyboardMarkup,
@@ -11,24 +12,24 @@ from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     ContextTypes,
     filters
 )
 
 # ================= KEEP ALIVE =================
 
-web = Flask(__name__)
+app_web = Flask(__name__)
 
-@web.route("/")
+@app_web.route('/')
 def home():
     return "Bot Running"
 
 def run():
-    web.run(host="0.0.0.0", port=10000)
+    app_web.run(host='0.0.0.0', port=10000)
 
 def keep_alive():
-    t = Thread(target=run)
-    t.start()
+    Thread(target=run).start()
 
 # ================= CONFIG =================
 
@@ -41,11 +42,12 @@ USERNAME = "rafiqmolla7"
 PID = "0257"
 
 BASE_URL = "https://api.durianrcs.com"
-
 ADMIN_ID = 8081334307
-
 SUPPORT_LINK = "https://t.me/Sojib9690"
 
+COUNTRY = "SS"
+
+# ✅ Allowed Users
 ALLOWED_USERS = {
 6528471341:"Sojib",
 8081334307:"Sojib Das",
@@ -57,28 +59,31 @@ ALLOWED_USERS = {
 # ================= MENU =================
 
 keyboard = [
-["📊 Status","👥 Users"],
-["⚙️ Settings","📞 Support"]
+["📱 Get Number"],
+["🌍 Country"],
+["🆔 My ID","💰 Balance"]
 ]
 
 menu = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 # ================= START =================
 
-async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
+async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
     user = update.effective_user.id
 
     if user not in ALLOWED_USERS:
 
         button = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Support Admin",url=SUPPORT_LINK)]]
+        [[InlineKeyboardButton("Support Admin", url=SUPPORT_LINK)]]
         )
 
         await update.message.reply_text(
-"""Access Denied
+"""বিশ্বাসঘাতককে আবার বিশ্বাস করা
+আর অন্ধকার শহরে আয়না বিক্রি করা একই কথা..
 
-Contact admin to get access.""",
+ধন্যবাদ
+🥱☠""",
 reply_markup=button)
 
         return
@@ -86,108 +91,107 @@ reply_markup=button)
     name = ALLOWED_USERS[user]
 
     await update.message.reply_text(
-f"Welcome {name}\nBot is ready.",
+f"Welcome {name}\nBot Ready",
 reply_markup=menu)
 
-# ================= SUPPORT =================
+# ================= COUNTRY =================
 
-async def support(update:Update,context:ContextTypes.DEFAULT_TYPE):
+async def show_country(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
-    button = InlineKeyboardMarkup(
-    [[InlineKeyboardButton("Open Support",url=SUPPORT_LINK)]]
+    buttons = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🇸🇸 South Sudan", callback_data="set|SS"),
+            InlineKeyboardButton("🇱🇨 Saint Lucia", callback_data="set|LC")
+        ]
+    ])
+
+    await update.message.reply_text("🌍 Select Country:", reply_markup=buttons)
+
+# ================= GET NUMBER =================
+
+async def get_number(update:Update, context:ContextTypes.DEFAULT_TYPE):
+
+    await update.message.reply_text("⏳ Getting number...")
+
+    await asyncio.sleep(2)
+    number = "1234567890"  # 👉 এখানে API বসাবে
+
+    buttons = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("❌ Cancel", callback_data=f"cancel|{number}"),
+            InlineKeyboardButton("🚫 Blacklist", callback_data=f"black|{number}")
+        ]
+    ])
+
+    await update.message.reply_text(
+        f"📱 Number:\n`{number}`",
+        parse_mode="Markdown",
+        reply_markup=buttons
     )
 
-    await update.message.reply_text(
-"Click the button below",
-reply_markup=button)
+# ================= BUTTON =================
 
-# ================= USER LIST =================
+async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
-async def users(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    global COUNTRY
 
-    if update.effective_user.id != ADMIN_ID:
-        return
+    query = update.callback_query
+    await query.answer()
 
-    text="Allowed Users\n\n"
+    data = query.data.split("|")
 
-    for uid,name in ALLOWED_USERS.items():
+    if data[0] == "set":
+        COUNTRY = data[1]
+        await query.edit_message_text(f"🌍 Country set: {COUNTRY}")
 
-        text+=f"{name} - {uid}\n"
+    elif data[0] == "cancel":
+        await query.edit_message_text("❌ Number Cancelled")
 
-    await update.message.reply_text(text)
+    elif data[0] == "black":
+        await query.edit_message_text("🚫 Blacklisted")
 
-# ================= ADD USER =================
+# ================= MY ID =================
 
-async def adduser(update:Update,context:ContextTypes.DEFAULT_TYPE):
+async def my_id(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"🆔 ID: {update.effective_user.id}")
 
-    if update.effective_user.id != ADMIN_ID:
-        return
+# ================= BALANCE =================
 
-    uid=int(context.args[0])
-    name=" ".join(context.args[1:])
+async def balance(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("💰 Checking balance...")
 
-    ALLOWED_USERS[uid]=name
+# ================= HANDLER =================
 
-    await update.message.reply_text(
-f"User Added: {name}"
-)
+async def handle(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
-# ================= REMOVE USER =================
-
-async def removeuser(update:Update,context:ContextTypes.DEFAULT_TYPE):
-
-    if update.effective_user.id != ADMIN_ID:
-        return
-
-    uid=int(context.args[0])
-
-    if uid in ALLOWED_USERS:
-
-        del ALLOWED_USERS[uid]
-
-        await update.message.reply_text(
-"User Removed"
-)
-
-# ================= MESSAGE HANDLER =================
-
-async def handle(update:Update,context:ContextTypes.DEFAULT_TYPE):
-
-    user=update.effective_user.id
+    user = update.effective_user.id
 
     if user not in ALLOWED_USERS:
         return
 
-    text=update.message.text
+    text = update.message.text
 
-    if text=="📊 Status":
+    if text == "📱 Get Number":
+        await get_number(update, context)
 
-        await update.message.reply_text("Bot Running")
+    elif text == "🌍 Country":
+        await show_country(update, context)
 
-    elif text=="👥 Users":
+    elif text == "🆔 My ID":
+        await my_id(update, context)
 
-        await users(update,context)
-
-    elif text=="⚙️ Settings":
-
-        await update.message.reply_text("Settings panel")
-
-    elif text=="📞 Support":
-
-        await support(update,context)
+    elif text == "💰 Balance":
+        await balance(update, context)
 
 # ================= MAIN =================
 
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-app.add_handler(CommandHandler("start",start))
-app.add_handler(CommandHandler("adduser",adduser))
-app.add_handler(CommandHandler("removeuser",removeuser))
-
-app.add_handler(MessageHandler(filters.TEXT,handle))
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.TEXT, handle))
+app.add_handler(CallbackQueryHandler(button_click))
 
 print("BOT RUNNING")
 
 keep_alive()
-
 app.run_polling()
