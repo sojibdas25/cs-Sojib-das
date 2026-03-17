@@ -2,7 +2,6 @@ import asyncio
 import requests
 from flask import Flask
 from threading import Thread
-
 from telegram import (
     Update,
     ReplyKeyboardMarkup,
@@ -19,12 +18,11 @@ from telegram.ext import (
 )
 
 # ================= KEEP ALIVE =================
-
 app_web = Flask(__name__)
 
 @app_web.route('/')
 def home():
-    return "Bot Running"
+    return "Bot is Online"
 
 def run():
     app_web.run(host='0.0.0.0', port=10000)
@@ -32,197 +30,161 @@ def run():
 def keep_alive():
     Thread(target=run).start()
 
-# ================= CONFIG =================
-
+# ================= CONFIGURATION =================
 BOT_TOKEN = "8740780011:AAHbnPoUV_4C6JGULWVQgOAvbvW96gkqEYo"
-
 API_KEY = "TXVzbXNNYk9BZHdJc3l1WllnYm15UT09"
 USERNAME = "rafiqmolla7"
 PROJECT_ID = "0257"
-
 SUPPORT_LINK = "https://t.me/Sojib9690"
 
-COUNTRY = "SS"
+# ডিফল্ট দেশ সাউথ সুদান (কোড: 211)
+CURRENT_COUNTRY_CODE = "211" 
 
 ALLOWED_USERS = {
-6528471341:"Sojib",
-8081334307:"Sojib Das",
-8181512467:"Admin",
-8164389661:"pc",
-6630618306:"Chandon"
+    6528471341: "Sojib",
+    8081334307: "Sojib Das",
+    8181512467: "Admin",
+    8164389661: "pc",
+    6630618306: "Chandon"
 }
 
-# ================= MENU =================
-
+# ================= KEYBOARD MENU =================
 keyboard = [
-["📱 Get Number"],
-["🌍 Country"],
-["🆔 My ID","💰 Balance"]
+    ["📱 Get Number"],
+    ["🌍 Country"],
+    ["🆔 My ID", "💰 Balance"]
 ]
-
 menu = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-# ================= START =================
-
-async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
-
-    user = update.effective_user.id
-
-    if user not in ALLOWED_USERS:
-        button = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Contact Admin", url=SUPPORT_LINK)]]
-        )
-
+# ================= START COMMAND =================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in ALLOWED_USERS:
+        button = InlineKeyboardMarkup([[InlineKeyboardButton("Contact Admin", url=SUPPORT_LINK)]])
         await update.message.reply_text(
-"❌ Access Denied\nAdmin approval required",
-reply_markup=button)
+            f"❌ **Access Denied**\nYour ID: `{user_id}`\nAdmin approval required.",
+            parse_mode="Markdown",
+            reply_markup=button
+        )
         return
+    await update.message.reply_text(f"✅ Welcome {ALLOWED_USERS[user_id]}! Bot is ready.", reply_markup=menu)
 
-    await update.message.reply_text("✅ Bot Ready", reply_markup=menu)
-
-# ================= COUNTRY =================
-
-async def show_country(update:Update, context:ContextTypes.DEFAULT_TYPE):
-
+# ================= COUNTRY SELECTION =================
+async def show_country(update: Update, context: ContextTypes.DEFAULT_TYPE):
     buttons = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("🇸🇸 South Sudan", callback_data="set|SS"),
-            InlineKeyboardButton("🇱🇨 Saint Lucia", callback_data="set|LC")
+            InlineKeyboardButton("🇸🇸 South Sudan", callback_data="set|211|South Sudan"),
+            InlineKeyboardButton("🇱🇨 Saint Lucia", callback_data="set|758|Saint Lucia")
         ]
     ])
-
     await update.message.reply_text("🌍 Select Country:", reply_markup=buttons)
 
-# ================= FAST GET NUMBER =================
+# ================= GET NUMBER =================
+async def get_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = await update.message.reply_text("⚡ Fetching number, please wait...")
 
-async def get_number(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    # ডকুমেন্ট অনুযায়ী: cuy প্যারামিটার এবং serial=2 যোগ করা হয়েছে
+    url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={USERNAME}&ApiKey={API_KEY}&pid={PROJECT_ID}&cuy={CURRENT_COUNTRY_CODE}&serial=2"
 
-    msg = await update.message.reply_text("⚡ Fetching ultra fast number...")
+    try:
+        res = requests.get(url, timeout=10).json()
+        if res.get("code") == 200 and res.get("data"):
+            number = res["data"]
+            
+            # নম্বর পাওয়ার পর ২ সেকেন্ড বিরতি (সিস্টেম স্ট্যাবিলিটির জন্য)
+            await asyncio.sleep(2) 
 
-    for i in range(3):  # 🔥 Auto retry 3 times
+            buttons = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("🚫 Blacklist", callback_data=f"black|{number}"),
+                    InlineKeyboardButton("❌ Cancel", callback_data="cancel_msg")
+                ]
+            ])
 
-        url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={USERNAME}&ApiKey={API_KEY}&pid={PROJECT_ID}&c={COUNTRY}"
+            await msg.edit_text(
+                f"✅ **Number Received!**\n\nCountry Code: `{CURRENT_COUNTRY_CODE}`\nNumber: `{number}`\n\n⏳ Waiting for OTP...",
+                parse_mode="Markdown",
+                reply_markup=buttons
+            )
 
-        try:
-            res = requests.get(url, timeout=8).json()
+            # ব্যাকগ্রাউন্ডে ওটিপি চেক শুরু
+            asyncio.create_task(fetch_otp(update, context, number, msg))
+        else:
+            await msg.edit_text(f"❌ Error: {res.get('msg', 'No number available')}")
+    except Exception as e:
+        await msg.edit_text("❌ Connection Error to API")
 
-            if res["code"] == 200 and res["data"]:
-                number = res["data"]
-
-                buttons = InlineKeyboardMarkup([
-                    [
-                        InlineKeyboardButton("❌ Cancel", callback_data=f"cancel|{number}"),
-                        InlineKeyboardButton("🚫 Blacklist", callback_data=f"black|{number}")
-                    ]
-                ])
-
-                await msg.edit_text(
-                    f"📱 Number ({COUNTRY}):\n`{number}`",
-                    parse_mode="Markdown",
-                    reply_markup=buttons
-                )
-
-                # 🔥 START OTP (background)
-                asyncio.create_task(fetch_otp(update, context, number, msg))
-
-                return
-
-        except:
-            pass
-
-        await asyncio.sleep(1)
-
-    await msg.edit_text("❌ No number available (Try again)")
-
-# ================= ULTRA FAST OTP =================
-
+# ================= FETCH OTP (The Core Logic) =================
 async def fetch_otp(update, context, number, msg):
+    # সঠিক এন্ডপয়েন্ট getMsg এবং serial=2 বাধ্যতামূলক
+    url = f"https://api.durianrcs.com/out/ext_api/getMsg?name={USERNAME}&ApiKey={API_KEY}&pn={number}&pid={PROJECT_ID}&serial=2"
 
-    url = f"https://api.durianrcs.com/out/ext_api/getMessage?name={USERNAME}&ApiKey={API_KEY}&pn={number}&pid={PROJECT_ID}"
-
-    for i in range(25):  # 🔥 Fast polling
-
+    # ২৫ বার ট্রাই করবে, প্রতি ১৫ সেকেন্ড অন্তর (ডকুমেন্টেশন অনুযায়ী)
+    for i in range(25): 
+        await asyncio.sleep(15) 
         try:
-            res = requests.get(url, timeout=6).json()
-
-            if res["code"] == 200 and res["data"]:
-                otp = res["data"]
-
+            res = requests.get(url, timeout=10).json()
+            if res.get("code") == 200 and res.get("data"):
+                otp_code = res["data"]
                 await msg.edit_text(
-                    f"📱 Number: `{number}`\n\n🔐 OTP:\n`{otp}`",
+                    f"✅ **OTP RECEIVED!**\n\n📱 Number: `{number}`\n🔑 OTP: `{otp_code}`",
                     parse_mode="Markdown"
                 )
                 return
-
         except:
             pass
 
-        await asyncio.sleep(2)  # 🔥 faster check
+    await msg.edit_text(f"⌛ OTP Timeout for `{number}`.\nIf you didn't get code, please Blacklist.")
 
-    await msg.edit_text(f"📱 `{number}`\n⌛ OTP Timeout")
-
-# ================= BUTTON =================
-
-async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
-
-    global COUNTRY
-
+# ================= BUTTON CALLBACKS =================
+async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global CURRENT_COUNTRY_CODE
     query = update.callback_query
     await query.answer()
-
     data = query.data.split("|")
 
     if data[0] == "set":
-        COUNTRY = data[1]
-        await query.edit_message_text(f"🌍 Country set: {COUNTRY}")
-
-    elif data[0] == "cancel":
-        await query.edit_message_text("❌ Cancelled")
+        CURRENT_COUNTRY_CODE = data[1]
+        country_name = data[2]
+        await query.edit_message_text(f"✅ Country set to: **{country_name}**", parse_mode="Markdown")
 
     elif data[0] == "black":
-        await query.edit_message_text("🚫 Blacklisted")
+        number = data[1]
+        black_url = f"https://api.durianrcs.com/out/ext_api/addBlack?name={USERNAME}&ApiKey={API_KEY}&pid={PROJECT_ID}&pn={number}"
+        requests.get(black_url)
+        await query.edit_message_text(f"🚫 Number `{number}` blacklisted and refunded.")
 
-# ================= MY ID =================
+    elif data[0] == "cancel_msg":
+        await query.edit_message_text("❌ Request Cancelled.")
 
-async def my_id(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"🆔 {update.effective_user.id}")
+# ================= OTHER COMMANDS =================
+async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    url = f"https://api.durianrcs.com/out/ext_api/getUserInfo?name={USERNAME}&ApiKey={API_KEY}"
+    try:
+        res = requests.get(url).json()
+        bal = res['data']['money'] if res.get("code") == 200 else "Error"
+        await update.message.reply_text(f"💰 Your Balance: `{bal}` USD", parse_mode="Markdown")
+    except:
+        await update.message.reply_text("❌ Failed to fetch balance.")
 
-# ================= BALANCE =================
-
-async def balance(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("💰 Checking...")
-
-# ================= HANDLER =================
-
-async def handle(update:Update, context:ContextTypes.DEFAULT_TYPE):
-
-    user = update.effective_user.id
-    if user not in ALLOWED_USERS:
-        return
-
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in ALLOWED_USERS: return
+    
     text = update.message.text
+    if text == "📱 Get Number": await get_number(update, context)
+    elif text == "🌍 Country": await show_country(update, context)
+    elif text == "🆔 My ID": await update.message.reply_text(f"🆔 Your ID: `{user_id}`", parse_mode="Markdown")
+    elif text == "💰 Balance": await balance(update, context)
 
-    if text == "📱 Get Number":
-        await get_number(update, context)
-
-    elif text == "🌍 Country":
-        await show_country(update, context)
-
-    elif text == "🆔 My ID":
-        await my_id(update, context)
-
-    elif text == "💰 Balance":
-        await balance(update, context)
-
-# ================= MAIN =================
-
-app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT, handle))
-app.add_handler(CallbackQueryHandler(button_click))
-
-print("ULTRA FAST BOT RUNNING 🚀")
-
-keep_alive()
-app.run_polling()
+# ================= MAIN RUNNER =================
+if __name__ == '__main__':
+    print("🚀 BOT IS STARTING...")
+    keep_alive()
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_text))
+    application.add_handler(CallbackQueryHandler(button_click))
+    
+    application.run_polling()
