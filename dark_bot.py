@@ -1,5 +1,5 @@
 import asyncio
-import aiohttp
+import requests
 from flask import Flask
 from threading import Thread
 
@@ -13,10 +13,6 @@ app_web = Flask(__name__)
 @app_web.route('/')
 def home():
     return "Bot Running"
-
-@app_web.route('/ping')
-def ping():
-    return "pong"
 
 def run():
     app_web.run(host='0.0.0.0', port=10000)
@@ -52,11 +48,12 @@ COUNTRIES = {
 }
 
 SEEN_USERS = set()
+
 # ================= MENU =================
 
 menu = ReplyKeyboardMarkup([
 ["📱 Get Number"],
-["🆔 My ID"]
+["🆔 My ID","💰 Balance"]
 ], resize_keyboard=True)
 
 # ================= START =================
@@ -114,40 +111,37 @@ async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
         msg = await query.edit_message_text(f"⚡ Getting {name}...")
 
-        async with aiohttp.ClientSession() as session:
+        for i in range(3):  # 🔥 only 3 try
 
-            for _ in range(3):
+            try:
+                url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={USERNAME}&ApiKey={API_KEY}&pid={PROJECT_ID}&cuy={country}"
 
-                try:
-                    url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={USERNAME}&ApiKey={API_KEY}&pid={PROJECT_ID}&cuy={country}"
+                res = requests.get(url, timeout=6).json()
 
-                    async with session.get(url, timeout=6) as resp:
-                        res = await resp.json()
+                if res.get("code") != 200 or not res.get("data"):
+                    continue
 
-                    if res.get("code") != 200 or not res.get("data"):
-                        continue
+                number = str(res["data"])
+                clean = number.replace("+","")
 
-                    number = str(res["data"])
-                    clean = number.replace("+","")
+                buttons = InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton("❌ Cancel", callback_data=f"cancel|{clean}"),
+                        InlineKeyboardButton("🚫 Blacklist", callback_data=f"black|{clean}")
+                    ]
+                ])
 
-                    buttons = InlineKeyboardMarkup([
-                        [
-                            InlineKeyboardButton("❌ Cancel", callback_data=f"cancel"),
-                            InlineKeyboardButton("🚫 Blacklist", callback_data=f"black")
-                        ]
-                    ])
+                await msg.edit_text(
+                    f"🌍 {name}\n📱 `{number}`\n⏳ Waiting OTP...",
+                    parse_mode="Markdown",
+                    reply_markup=buttons
+                )
 
-                    await msg.edit_text(
-                        f"🌍 {name}\n📱 `{number}`\n⏳ Waiting OTP...",
-                        parse_mode="Markdown",
-                        reply_markup=buttons
-                    )
+                asyncio.create_task(fetch_otp(msg, number, clean))
+                return
 
-                    asyncio.create_task(fetch_otp(msg, number, clean))
-                    return
-
-                except:
-                    pass
+            except:
+                pass
 
         await msg.edit_text("❌ No number, try again")
 
@@ -163,30 +157,29 @@ async def fetch_otp(msg, number, clean):
 
     url = f"https://api.durianrcs.com/out/ext_api/getMsg?name={USERNAME}&ApiKey={API_KEY}&pn={clean}&pid={PROJECT_ID}"
 
-    async with aiohttp.ClientSession() as session:
+    # 20 মিনিট = 1200 sec / 1.5 = ~800 loop
+    for i in range(800):
 
-        for _ in range(120):  # 🔥 optimized loop
+        try:
+            res = requests.get(url, timeout=5).json()
 
-            try:
-                async with session.get(url, timeout=5) as resp:
-                    res = await resp.json()
+            if res.get("data") and res["data"] != "":
+                otp = res["data"]
 
-                if res.get("data"):
-                    otp = res["data"]
+                await msg.edit_text(
+                    f"📱 {number}\n\n🔐 OTP:\n`{otp}`",
+                    parse_mode="Markdown"
+                )
+                return
 
-                    await msg.edit_text(
-                        f"📱 {number}\n\n🔐 OTP:\n`{otp}`",
-                        parse_mode="Markdown"
-                    )
-                    return
+        except:
+            pass
 
-            except:
-                pass
+        await asyncio.sleep(1.5)  # fast check
 
-            await asyncio.sleep(3)
-
+    # 20 মিনিট পরেও না পেলে
     await msg.edit_text(
-        f"📱 {number}\n⌛ OTP not received"
+        f"📱 {number}\n⌛ OTP not received (20 min timeout)"
     )
 
 # ================= ADMIN =================
@@ -216,6 +209,28 @@ async def list_country(update:Update, context:ContextTypes.DEFAULT_TYPE):
         text += f"{k} → {v}\n"
     await update.message.reply_text(text)
 
+# ================= USER ADMIN =================
+
+async def approve(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID: return
+    user_id = int(context.args[0])
+    name = " ".join(context.args[1:])
+    ALLOWED_USERS[user_id] = name
+    await update.message.reply_text("✅ Approved")
+
+async def remove_user(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID: return
+    user_id = int(context.args[0])
+    if user_id in ALLOWED_USERS:
+        del ALLOWED_USERS[user_id]
+        await update.message.reply_text("❌ Removed")
+
+async def list_users(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    text = "👥 Users:\n\n"
+    for uid,name in ALLOWED_USERS.items():
+        text += f"{name} → `{uid}`\n"
+    await update.message.reply_text(text, parse_mode="Markdown")
+
 # ================= HANDLER =================
 
 async def handle(update:Update, context:ContextTypes.DEFAULT_TYPE):
@@ -238,6 +253,10 @@ async def handle(update:Update, context:ContextTypes.DEFAULT_TYPE):
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("approve", approve))
+app.add_handler(CommandHandler("remove", remove_user))
+app.add_handler(CommandHandler("users", list_users))
+
 app.add_handler(CommandHandler("addcountry", add_country))
 app.add_handler(CommandHandler("removecountry", remove_country))
 app.add_handler(CommandHandler("countries", list_country))
@@ -248,4 +267,4 @@ app.add_handler(CallbackQueryHandler(button_click))
 print("🔥 SUPER BOT RUNNING 🔥")
 
 keep_alive()
-app.run_polling(concurrent_updates=True)
+app.run_polling()
