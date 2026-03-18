@@ -252,7 +252,7 @@ reply_markup=buttons
                 # ===== GROUP =====
                 masked = mask(number)
 
-                text = f"""🚀 NEW OTP
+text = f"""🚀 NEW OTP
 
 👤 User: {uname}
 🆔 ID: {uid}
@@ -265,16 +265,21 @@ Developer: t.me/Sojib9690
 Number Bot: @CSDarkSMSBot
 ━━━━━━━━━━━━━━"""
 
-                await msg._bot.send_message(GROUP_ID, text)
+# 🔥 BUTTON ADD
+buttons = InlineKeyboardMarkup([
+    [
+        InlineKeyboardButton("📢 Main Channel", url="https://t.me/CsDrakOtpZone"),
+        InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/Sojib9690")
+    ]
+])
 
-                return
+await msg._bot.send_message(
+    GROUP_ID,
+    text,
+    reply_markup=buttons
+)
 
-        except:
-            pass
-
-        await asyncio.sleep(1.5)
-
-    await msg.edit_text(f"📱 {number}\n⌛ Timeout")
+return
 
 # ================= ADMIN =================
 
