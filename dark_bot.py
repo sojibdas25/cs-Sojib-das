@@ -28,6 +28,13 @@ USERNAME = "rafiqmolla7"
 PROJECT_ID = "0257"
 
 ADMIN_ID = 8081334307
+GROUP_ID = -1003525081102
+
+# ================= DATABASE =================
+
+USER_STATS = {}
+
+# ================= USERS =================
 
 ALLOWED_USERS = {
     6528471341: "Sojib",
@@ -53,7 +60,7 @@ SEEN_USERS = set()
 
 menu = ReplyKeyboardMarkup([
 ["📱 Get Number"],
-["🆔 My ID","💰 Balance"]
+["🆔 My ID","📊 Status"]
 ], resize_keyboard=True)
 
 # ================= START =================
@@ -84,7 +91,56 @@ reply_markup=button
 
     await update.message.reply_text(f"✅ Welcome {ALLOWED_USERS[user]}", reply_markup=menu)
 
-# ================= COUNTRY SELECT =================
+# ================= STATUS =================
+
+async def status(update:Update, context:ContextTypes.DEFAULT_TYPE):
+
+    user = update.effective_user.id
+    data = USER_STATS.get(user, {})
+
+    if not data:
+        await update.message.reply_text("📊 No OTP yet")
+        return
+
+    text = "📊 OTP Stats:\n\n"
+    total = 0
+
+    for country,count in data.items():
+        text += f"{country} → {count}\n"
+        total += count
+
+    text += f"\n🔥 Total: {total}"
+
+    await update.message.reply_text(text)
+
+# ================= ADMIN OTP =================
+
+async def allotp(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    text = "📊 All Users OTP:\n\n"
+
+    for user,data in USER_STATS.items():
+        total = sum(data.values())
+        text += f"{user} → {total}\n"
+
+    await update.message.reply_text(text)
+
+async def resetotp(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    USER_STATS.clear()
+    await update.message.reply_text("♻️ Reset Done")
+
+# ================= MASK =================
+
+def mask(num):
+    num = num.replace("+","")
+    return num[:3] + "******" + num[-4:]
+
+# ================= COUNTRY =================
 
 async def get_number(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
@@ -95,7 +151,7 @@ async def get_number(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("🌍 Select Country:", reply_markup=InlineKeyboardMarkup(buttons))
 
-# ================= FAST GET =================
+# ================= BUTTON =================
 
 async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
@@ -111,7 +167,7 @@ async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
         msg = await query.edit_message_text(f"⚡ Getting {name}...")
 
-        for i in range(3):  # 🔥 only 3 try
+        for i in range(3):
 
             try:
                 url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={USERNAME}&ApiKey={API_KEY}&pid={PROJECT_ID}&cuy={country}"
@@ -137,13 +193,13 @@ async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
                     reply_markup=buttons
                 )
 
-                asyncio.create_task(fetch_otp(msg, number, clean))
+                asyncio.create_task(fetch_otp(msg, number, clean, query.from_user, name))
                 return
 
             except:
                 pass
 
-        await msg.edit_text("❌ No number, try again")
+        await msg.edit_text("❌ No number")
 
     elif data[0] == "cancel":
         await query.edit_message_text("❌ Cancelled")
@@ -153,11 +209,10 @@ async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
 # ================= OTP =================
 
-async def fetch_otp(msg, number, clean):
+async def fetch_otp(msg, number, clean, user, country):
 
     url = f"https://api.durianrcs.com/out/ext_api/getMsg?name={USERNAME}&ApiKey={API_KEY}&pn={clean}&pid={PROJECT_ID}"
 
-    # 20 মিনিট = 1200 sec / 1.5 = ~800 loop
     for i in range(800):
 
         try:
@@ -166,50 +221,62 @@ async def fetch_otp(msg, number, clean):
             if res.get("data") and res["data"] != "":
                 otp = res["data"]
 
+                uid = user.id
+                uname = user.first_name
+
+                # ===== SAVE =====
+                if uid not in USER_STATS:
+                    USER_STATS[uid] = {}
+
+                if country not in USER_STATS[uid]:
+                    USER_STATS[uid][country] = 0
+
+                USER_STATS[uid][country] += 1
+
+                # ===== USER MSG =====
+                buttons = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📢 OTP Group", url="https://t.me/CsDrakOtpZone")]
+                ])
+
                 await msg.edit_text(
-                    f"📱 {number}\n\n🔐 OTP:\n`{otp}`",
-                    parse_mode="Markdown"
+f"""━━━━━━━━━━━━━━
+📱 NUMBER: `{number}`
+
+🔐 OTP RECEIVED:
+`{otp}`
+━━━━━━━━━━━━━━""",
+parse_mode="Markdown",
+reply_markup=buttons
                 )
+
+                # ===== GROUP =====
+                masked = mask(number)
+
+                text = f"""🚀 NEW OTP
+
+👤 User: {uname}
+🆔 ID: {uid}
+
+📱 Number: {masked}
+🔐 OTP: {otp}
+
+━━━━━━━━━━━━━━
+Developer: t.me/Sojib9690
+Number Bot: @CSDarkSMSBot
+━━━━━━━━━━━━━━"""
+
+                await msg._bot.send_message(GROUP_ID, text)
+
                 return
 
         except:
             pass
 
-        await asyncio.sleep(1.5)  # fast check
+        await asyncio.sleep(1.5)
 
-    # 20 মিনিট পরেও না পেলে
-    await msg.edit_text(
-        f"📱 {number}\n⌛ OTP not received (20 min timeout)"
-    )
+    await msg.edit_text(f"📱 {number}\n⌛ Timeout")
 
 # ================= ADMIN =================
-
-async def add_country(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID: return
-    try:
-        name = context.args[0]
-        full = " ".join(context.args[1:])
-        COUNTRIES[name] = full
-        await update.message.reply_text(f"✅ Added {name}")
-    except:
-        await update.message.reply_text("Use: /addcountry name full_name")
-
-async def remove_country(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID: return
-    try:
-        name = context.args[0]
-        del COUNTRIES[name]
-        await update.message.reply_text(f"❌ Removed {name}")
-    except:
-        pass
-
-async def list_country(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    text = "🌍 Countries:\n\n"
-    for k,v in COUNTRIES.items():
-        text += f"{k} → {v}\n"
-    await update.message.reply_text(text)
-
-# ================= USER ADMIN =================
 
 async def approve(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID: return
@@ -231,7 +298,7 @@ async def list_users(update:Update, context:ContextTypes.DEFAULT_TYPE):
         text += f"{name} → `{uid}`\n"
     await update.message.reply_text(text, parse_mode="Markdown")
 
-# ================= HANDLER =================
+# ================= HANDLE =================
 
 async def handle(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
@@ -248,6 +315,9 @@ async def handle(update:Update, context:ContextTypes.DEFAULT_TYPE):
     elif text == "🆔 My ID":
         await update.message.reply_text(f"{user}")
 
+    elif text == "📊 Status":
+        await status(update, context)
+
 # ================= MAIN =================
 
 app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -257,9 +327,8 @@ app.add_handler(CommandHandler("approve", approve))
 app.add_handler(CommandHandler("remove", remove_user))
 app.add_handler(CommandHandler("users", list_users))
 
-app.add_handler(CommandHandler("addcountry", add_country))
-app.add_handler(CommandHandler("removecountry", remove_country))
-app.add_handler(CommandHandler("countries", list_country))
+app.add_handler(CommandHandler("allotp", allotp))
+app.add_handler(CommandHandler("resetotp", resetotp))
 
 app.add_handler(MessageHandler(filters.TEXT, handle))
 app.add_handler(CallbackQueryHandler(button_click))
