@@ -259,14 +259,9 @@ async def main():
 
     await app.initialize()
     await app.start()
+    await app.stop()  # optional safe
 
-    # correct polling
-    await app.bot.initialize()
-    await app.bot.delete_webhook(drop_pending_updates=True)
-
-    # main loop alive রাখবে
-    while True:
-        await asyncio.sleep(3600)
+    await app.run_polling()
 
 
 if __name__ == "__main__":
