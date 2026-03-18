@@ -38,7 +38,8 @@ ALLOWED_USERS = {
     8477306760: " Ridoy Sarkar",
     8050716664: "Bolay Kumar",
     8107209599: "PS. SUPOT KUMAR",
-    1830287857: "AK Anonto"
+    1830287857: "AK Anonto",
+    5257295219: "Kanok Kumar"
 }
 
 COUNTRIES = {
