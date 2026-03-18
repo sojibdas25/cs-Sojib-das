@@ -43,7 +43,8 @@ ALLOWED_USERS = {
 }
 
 COUNTRIES = {
-    "SS": "🇸🇸 South Sudan"
+    "🇸🇸 South Sudan": "SS",
+    "🇸🇿 Eswatini": "SZ"
 }
 
 SEEN_USERS = set()
@@ -51,8 +52,8 @@ SEEN_USERS = set()
 # ================= MENU =================
 
 menu = ReplyKeyboardMarkup([
-["№Б Get Number"],
-["№ My ID","№А Balance"]
+["📱 Get Number"],
+["🆔 My ID","💰 Balance"]
 ], resize_keyboard=True)
 
 # ================= START =================
@@ -64,7 +65,7 @@ async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
     if user not in SEEN_USERS:
         SEEN_USERS.add(user)
-        await context.bot.send_message(ADMIN_ID,f"№Ј New User\n{user} | {name}")
+        await context.bot.send_message(ADMIN_ID,f"🚨 New User\n{user} | {name}")
 
     if user not in ALLOWED_USERS:
 
@@ -73,7 +74,7 @@ async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
         )
 
         await update.message.reply_text(
-f"""т Access Denied
+f"""❌ Access Denied
 
 Your ID: {user}
 Admin approval required""",
@@ -81,7 +82,7 @@ reply_markup=button
         )
         return
 
-    await update.message.reply_text(f"т Welcome {ALLOWED_USERS[user]}", reply_markup=menu)
+    await update.message.reply_text(f"✅ Welcome {ALLOWED_USERS[user]}", reply_markup=menu)
 
 # ================= COUNTRY SELECT =================
 
@@ -92,7 +93,7 @@ async def get_number(update:Update, context:ContextTypes.DEFAULT_TYPE):
     for name in COUNTRIES:
         buttons.append([InlineKeyboardButton(name, callback_data=f"get|{name}")])
 
-    await update.message.reply_text("№ Select Country:", reply_markup=InlineKeyboardMarkup(buttons))
+    await update.message.reply_text("🌍 Select Country:", reply_markup=InlineKeyboardMarkup(buttons))
 
 # ================= FAST GET =================
 
@@ -108,9 +109,9 @@ async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
         name = data[1]
         country = COUNTRIES[name]
 
-        msg = await query.edit_message_text(f"тЁ Getting {name}...")
+        msg = await query.edit_message_text(f"⚡ Getting {name}...")
 
-        for i in range(3):  # №Ѕ only 3 try
+        for i in range(3):  # 🔥 only 3 try
 
             try:
                 url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={USERNAME}&ApiKey={API_KEY}&pid={PROJECT_ID}&cuy={country}"
@@ -125,13 +126,13 @@ async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
                 buttons = InlineKeyboardMarkup([
                     [
-                        InlineKeyboardButton("т Cancel", callback_data=f"cancel|{clean}"),
-                        InlineKeyboardButton("№Ћ Blacklist", callback_data=f"black|{clean}")
+                        InlineKeyboardButton("❌ Cancel", callback_data=f"cancel|{clean}"),
+                        InlineKeyboardButton("🚫 Blacklist", callback_data=f"black|{clean}")
                     ]
                 ])
 
                 await msg.edit_text(
-                    f"№ {name}\n№Б `{number}`\nтГ Waiting OTP...",
+                    f"🌍 {name}\n📱 `{number}`\n⏳ Waiting OTP...",
                     parse_mode="Markdown",
                     reply_markup=buttons
                 )
@@ -142,13 +143,13 @@ async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
             except:
                 pass
 
-        await msg.edit_text("т No number, try again")
+        await msg.edit_text("❌ No number, try again")
 
     elif data[0] == "cancel":
-        await query.edit_message_text("т Cancelled")
+        await query.edit_message_text("❌ Cancelled")
 
     elif data[0] == "black":
-        await query.edit_message_text("№Ћ Blacklisted")
+        await query.edit_message_text("🚫 Blacklisted")
 
 # ================= OTP =================
 
@@ -156,7 +157,7 @@ async def fetch_otp(msg, number, clean):
 
     url = f"https://api.durianrcs.com/out/ext_api/getMsg?name={USERNAME}&ApiKey={API_KEY}&pn={clean}&pid={PROJECT_ID}"
 
-    # 20 рІЎрІПрІЈрІПрІ = 1200 sec / 1.5 = ~800 loop
+    # 20 মিনিট = 1200 sec / 1.5 = ~800 loop
     for i in range(800):
 
         try:
@@ -166,7 +167,7 @@ async def fetch_otp(msg, number, clean):
                 otp = res["data"]
 
                 await msg.edit_text(
-                    f"№Б {number}\n\n№ OTP:\n`{otp}`",
+                    f"📱 {number}\n\n🔐 OTP:\n`{otp}`",
                     parse_mode="Markdown"
                 )
                 return
@@ -176,9 +177,9 @@ async def fetch_otp(msg, number, clean):
 
         await asyncio.sleep(1.5)  # fast check
 
-    # 20 рІЎрІПрІЈрІПрІ рІЊрІАрЇрІ рІЈрІО рІЊрЇрІВрЇ
+    # 20 মিনিট পরেও না পেলে
     await msg.edit_text(
-        f"№Б {number}\nт OTP not received (20 min timeout)"
+        f"📱 {number}\n⌛ OTP not received (20 min timeout)"
     )
 
 # ================= ADMIN =================
@@ -189,7 +190,7 @@ async def add_country(update:Update, context:ContextTypes.DEFAULT_TYPE):
         name = context.args[0]
         full = " ".join(context.args[1:])
         COUNTRIES[name] = full
-        await update.message.reply_text(f"т Added {name}")
+        await update.message.reply_text(f"✅ Added {name}")
     except:
         await update.message.reply_text("Use: /addcountry name full_name")
 
@@ -198,14 +199,14 @@ async def remove_country(update:Update, context:ContextTypes.DEFAULT_TYPE):
     try:
         name = context.args[0]
         del COUNTRIES[name]
-        await update.message.reply_text(f"т Removed {name}")
+        await update.message.reply_text(f"❌ Removed {name}")
     except:
         pass
 
 async def list_country(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    text = "№ Countries:\n\n"
+    text = "🌍 Countries:\n\n"
     for k,v in COUNTRIES.items():
-        text += f"{k} т {v}\n"
+        text += f"{k} → {v}\n"
     await update.message.reply_text(text)
 
 # ================= USER ADMIN =================
@@ -215,19 +216,19 @@ async def approve(update:Update, context:ContextTypes.DEFAULT_TYPE):
     user_id = int(context.args[0])
     name = " ".join(context.args[1:])
     ALLOWED_USERS[user_id] = name
-    await update.message.reply_text("т Approved")
+    await update.message.reply_text("✅ Approved")
 
 async def remove_user(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID: return
     user_id = int(context.args[0])
     if user_id in ALLOWED_USERS:
         del ALLOWED_USERS[user_id]
-        await update.message.reply_text("т Removed")
+        await update.message.reply_text("❌ Removed")
 
 async def list_users(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    text = "№Ѕ Users:\n\n"
+    text = "👥 Users:\n\n"
     for uid,name in ALLOWED_USERS.items():
-        text += f"{name} т `{uid}`\n"
+        text += f"{name} → `{uid}`\n"
     await update.message.reply_text(text, parse_mode="Markdown")
 
 # ================= HANDLER =================
@@ -241,10 +242,10 @@ async def handle(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
     text = update.message.text
 
-    if text == "№Б Get Number":
+    if text == "📱 Get Number":
         await get_number(update, context)
 
-    elif text == "№ My ID":
+    elif text == "🆔 My ID":
         await update.message.reply_text(f"{user}")
 
 # ================= MAIN =================
@@ -263,7 +264,7 @@ app.add_handler(CommandHandler("countries", list_country))
 app.add_handler(MessageHandler(filters.TEXT, handle))
 app.add_handler(CallbackQueryHandler(button_click))
 
-print("№Ѕ SUPER BOT RUNNING №Ѕ")
+print("🔥 SUPER BOT RUNNING 🔥")
 
 keep_alive()
 app.run_polling()
