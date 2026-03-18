@@ -43,6 +43,7 @@ COUNTRIES = {
 
 SEEN_USERS = set()
 
+TOTAL_OTP = 0
 # ================= MENU =================
 
 menu = ReplyKeyboardMarkup([
@@ -52,31 +53,40 @@ menu = ReplyKeyboardMarkup([
 
 # ================= START =================
 
-async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.effective_user.id
     name = update.effective_user.first_name
 
+    # ✅ New user notify
     if user not in SEEN_USERS:
         SEEN_USERS.add(user)
-        await context.bot.send_message(ADMIN_ID,f"🚨 New User\n{user} | {name}")
-
-    if user not in ALLOWED_USERS:
-
-        button = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Contact Admin", url="https://t.me/Sojib9690")]]
+        await context.bot.send_message(
+            ADMIN_ID,
+            f"🚨 New User\n🆔 {user}\n👤 {name}"
         )
+
+    # ❌ Not allowed user
+    if str(user) not in ALLOWED_USERS:
+
+        button = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📩 Contact Admin", url="https://t.me/Sojib9690")]
+        ])
 
         await update.message.reply_text(
-f"""❌ Access Denied
+            f"""❌ Access Denied
 
-Your ID: {user}
-Admin approval required""",
-reply_markup=button
+🆔 Your ID: {user}
+⏳ Admin approval required""",
+            reply_markup=button
         )
-        return
+        return  # 🔥 এখানেই stop
 
-    await update.message.reply_text(f"✅ Welcome {ALLOWED_USERS[user]}", reply_markup=menu)
+    # ✅ Allowed user → full access
+    await update.message.reply_text(
+        f"✅ Welcome {name}",
+        reply_markup=menu
+    )
 
 # ================= COUNTRY SELECT =================
 
@@ -147,7 +157,11 @@ async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
 # ================= OTP =================
 
+TOTAL_OTP = 0  # 👈 এটা ফাইলের একদম উপরে দাও
+
 async def fetch_otp(msg, number, clean):
+
+    global TOTAL_OTP  # 👈 এখানে দিতে হবে
 
     url = f"https://api.durianrcs.com/out/ext_api/getMsg?name={USERNAME}&ApiKey={API_KEY}&pn={clean}&pid={PROJECT_ID}"
 
@@ -160,8 +174,10 @@ async def fetch_otp(msg, number, clean):
             if res.get("data") and res["data"] != "":
                 otp = res["data"]
 
+                TOTAL_OTP += 1  # 👈 এখানে count হবে
+
                 await msg.edit_text(
-                    f"📱 {number}\n\n🔐 OTP:\n`{otp}`",
+                    f"📱 {number}\n\n🔐 OTP:\n`{otp}`\n\n📊 Total OTP: {TOTAL_OTP}",
                     parse_mode="Markdown"
                 )
                 return
@@ -169,9 +185,8 @@ async def fetch_otp(msg, number, clean):
         except:
             pass
 
-        await asyncio.sleep(1.5)  # fast check
+        await asyncio.sleep(1.5)
 
-    # 20 মিনিট পরেও না পেলে
     await msg.edit_text(
         f"📱 {number}\n⌛ OTP not received (20 min timeout)"
     )
@@ -227,20 +242,29 @@ async def list_users(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
 # ================= HANDLER =================
 
-async def handle(update:Update, context:ContextTypes.DEFAULT_TYPE):
+async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.effective_user.id
 
-    if user not in ALLOWED_USERS:
+    # ❌ Not allowed user
+    if str(user) not in ALLOWED_USERS:
         return
 
     text = update.message.text
 
+    # 📱 Get Number
     if text == "📱 Get Number":
         await get_number(update, context)
 
+    # 🆔 My ID + OTP Count
     elif text == "🆔 My ID":
-        await update.message.reply_text(f"{user}")
+
+        count = USER_OTP_COUNT.get(str(user), 0)
+
+        await update.message.reply_text(
+            f"""🆔 Your ID: {user}
+📥 Total OTP Received: {count}"""
+        )
 
 # ================= MAIN =================
 
