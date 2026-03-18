@@ -151,23 +151,30 @@ async def fetch_otp(msg, number, clean):
 
     url = f"https://api.durianrcs.com/out/ext_api/getMsg?name={USERNAME}&ApiKey={API_KEY}&pn={clean}&pid={PROJECT_ID}"
 
-    for i in range(60):
+    # 20 মিনিট = 1200 sec / 1.5 = ~800 loop
+    for i in range(800):
 
         try:
             res = requests.get(url, timeout=5).json()
 
-            if res.get("data"):
+            if res.get("data") and res["data"] != "":
                 otp = res["data"]
 
-                await msg.edit_text(f"📱 {number}\n\n🔐 OTP:\n`{otp}`", parse_mode="Markdown")
+                await msg.edit_text(
+                    f"📱 {number}\n\n🔐 OTP:\n`{otp}`",
+                    parse_mode="Markdown"
+                )
                 return
 
         except:
             pass
 
-        await asyncio.sleep(1.5)  # ⚡ ultra fast
+        await asyncio.sleep(1.5)  # fast check
 
-    await msg.edit_text(f"📱 {number}\n⌛ OTP not received")
+    # 20 মিনিট পরেও না পেলে
+    await msg.edit_text(
+        f"📱 {number}\n⌛ OTP not received (20 min timeout)"
+    )
 
 # ================= ADMIN =================
 
