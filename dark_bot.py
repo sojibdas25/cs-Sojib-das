@@ -250,19 +250,21 @@ async def handle(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
 # ================= MAIN =================
 
-import asyncio
+app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-async def main():
-    print("🔥 SUPER BOT RUNNING 🔥")
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("approve", approve))
+app.add_handler(CommandHandler("remove", remove_user))
+app.add_handler(CommandHandler("users", list_users))
 
-    keep_alive()
+app.add_handler(CommandHandler("addcountry", add_country))
+app.add_handler(CommandHandler("removecountry", remove_country))
+app.add_handler(CommandHandler("countries", list_country))
 
-    await app.initialize()
-    await app.start()
-    await app.stop()  # optional safe
+app.add_handler(MessageHandler(filters.TEXT, handle))
+app.add_handler(CallbackQueryHandler(button_click))
 
-    await app.run_polling()
+print("🔥 SUPER BOT RUNNING 🔥")
 
-
-if __name__ == "__main__":
-    asyncio.run(main())
+keep_alive()
+app.run_polling()
