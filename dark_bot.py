@@ -250,9 +250,7 @@ f"""━━━━━━━━━━━━━━
                 )
 
                 # ===== GROUP MESSAGE =====
-                from datetime import datetime
-
-masked = mask(number)
+                masked = mask(number)
 
 now = datetime.now().strftime("%d-%m-%Y %I:%M %p")
 
