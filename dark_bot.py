@@ -138,7 +138,7 @@ async def resetotp(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
 def mask(num):
     num = num.replace("+","")
-    return num[:3] + "******" + num[-4:]
+    return num[:3] + "******" + num[4:]
 
 # ================= COUNTRY =================
 
