@@ -199,7 +199,7 @@ async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
             except:
                 pass
 
-        await msg.edit_text("❌ No number")
+        await msg.edit_text("❌ No number please try again")
 
     elif data[0] == "cancel":
         await query.edit_message_text("❌ Cancelled")
@@ -261,8 +261,7 @@ f"""━━━━━━━━━━━━━━
 🔐 OTP: `{otp}`
 
 ━━━━━━━━━━━━━━
-Developer: t.me/Sojib9690
-Number Bot: @CSDarkSMSBot
+🔐 Secure OTP Service
 ━━━━━━━━━━━━━━"""
 
                 group_buttons = InlineKeyboardMarkup([
