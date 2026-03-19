@@ -290,28 +290,70 @@ Number Bot: @CSDarkSMSBot
         await asyncio.sleep(1.5)
 
     await msg.edit_text(f"📱 {number}\n⌛ OTP not received (timeout)")
-# ================= ADMIN =================
+# ================= COUNTRY ADMIN =================
 
-async def approve(update:Update, context:ContextTypes.DEFAULT_TYPE):
+async def add_country(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID: return
-    user_id = int(context.args[0])
-    name = " ".join(context.args[1:])
-    ALLOWED_USERS[user_id] = name
-    await update.message.reply_text("✅ Approved")
+    
+    try:
+        name = context.args[0]
+        code = context.args[1]
+        COUNTRIES[name] = code
+        await update.message.reply_text(f"✅ Country Added: {name}")
+    except:
+        await update.message.reply_text("Use: /addcountry 🇧🇩 Bangladesh BD")
 
-async def remove_user(update:Update, context:ContextTypes.DEFAULT_TYPE):
+
+async def remove_country(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID: return
-    user_id = int(context.args[0])
-    if user_id in ALLOWED_USERS:
-        del ALLOWED_USERS[user_id]
-        await update.message.reply_text("❌ Removed")
+    
+    try:
+        name = context.args[0]
+        if name in COUNTRIES:
+            del COUNTRIES[name]
+            await update.message.reply_text(f"❌ Removed: {name}")
+    except:
+        pass
 
-async def list_users(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    text = "👥 Users:\n\n"
-    for uid,name in ALLOWED_USERS.items():
-        text += f"{name} → `{uid}`\n"
-    await update.message.reply_text(text, parse_mode="Markdown")
 
+async def list_country(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    text = "🌍 Countries:\n\n"
+    for k,v in COUNTRIES.items():
+        text += f"{k} → {v}\n"
+    await update.message.reply_text(text)
+
+
+# ================= STATS ADMIN =================
+
+async def allstats(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID: return
+
+    text = "📊 ALL USER STATS:\n\n"
+
+    for uid,data in USER_STATS.items():
+        total = sum(data.values())
+        text += f"{uid} → {total}\n"
+
+    await update.message.reply_text(text)
+
+
+async def resetstats(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID: return
+
+    try:
+        uid = int(context.args[0])
+        if uid in USER_STATS:
+            USER_STATS[uid] = {}
+            await update.message.reply_text("♻️ User Reset Done")
+    except:
+        await update.message.reply_text("Use: /resetstats user_id")
+
+
+async def resetall(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID: return
+
+    USER_STATS.clear()
+    await update.message.reply_text("♻️ All Stats Reset")
 # ================= HANDLE =================
 
 async def handle(update:Update, context:ContextTypes.DEFAULT_TYPE):
@@ -343,6 +385,14 @@ app.add_handler(CommandHandler("users", list_users))
 
 app.add_handler(CommandHandler("allotp", allotp))
 app.add_handler(CommandHandler("resetotp", resetotp))
+
+app.add_handler(CommandHandler("addcountry", add_country))
+app.add_handler(CommandHandler("removecountry", remove_country))
+app.add_handler(CommandHandler("countries", list_country))
+
+app.add_handler(CommandHandler("allstats", allstats))
+app.add_handler(CommandHandler("resetstats", resetstats))
+app.add_handler(CommandHandler("resetall", resetall))
 
 app.add_handler(MessageHandler(filters.TEXT, handle))
 app.add_handler(CallbackQueryHandler(button_click))
