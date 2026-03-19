@@ -268,7 +268,7 @@ Number Bot: @CSDarkSMSBot
 # 🔥 BUTTON ADD
 buttons = InlineKeyboardMarkup([
     [
-        InlineKeyboardButton("📢 Main Channel", url="https://t.me/CsDrakOtpZone"),
+        InlineKeyboardButton("📢 Otp Group", url="https://t.me/CsDrakOtpZone"),
         InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/Sojib9690")
     ]
 ])
