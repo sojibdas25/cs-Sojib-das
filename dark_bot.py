@@ -269,6 +269,9 @@ buttons = InlineKeyboardMarkup([
     [
         InlineKeyboardButton("📢 Otp Group", url="https://t.me/CsDrakOtpZone"),
         InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/Sojib9690")
+    ],
+    [
+        InlineKeyboardButton("🤖 Number Bot", url="https://t.me/CSDarkSMSBot")
     ]
 ])
 
