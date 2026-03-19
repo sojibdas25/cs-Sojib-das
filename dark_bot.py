@@ -138,7 +138,7 @@ async def resetotp(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
 def mask(num):
     num = num.replace("+","")
-    return num[:3] + "******" + num[4:]
+    return num[:3] + "******" + num[-4:]
 
 # ================= COUNTRY =================
 
@@ -199,7 +199,7 @@ async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
             except:
                 pass
 
-        await msg.edit_("❌ No number, try again")
+        await msg.edit_text("❌ No number")
 
     elif data[0] == "cancel":
         await query.edit_message_text("❌ Cancelled")
@@ -261,7 +261,8 @@ f"""━━━━━━━━━━━━━━
 🔐 OTP: `{otp}`
 
 ━━━━━━━━━━━━━━
-🔐 Secure OTP Service
+Developer: t.me/Sojib9690
+Number Bot: @CSDarkSMSBot
 ━━━━━━━━━━━━━━"""
 
                 group_buttons = InlineKeyboardMarkup([
