@@ -290,6 +290,28 @@ Number Bot: @CSDarkSMSBot
         await asyncio.sleep(1.5)
 
     await msg.edit_text(f"📱 {number}\n⌛ OTP not received (timeout)")
+# ================= ADMIN =================
+
+async def approve(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID: return
+    user_id = int(context.args[0])
+    name = " ".join(context.args[1:])
+    ALLOWED_USERS[user_id] = name
+    await update.message.reply_text("✅ Approved")
+
+async def remove_user(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID: return
+    user_id = int(context.args[0])
+    if user_id in ALLOWED_USERS:
+        del ALLOWED_USERS[user_id]
+        await update.message.reply_text("❌ Removed")
+
+async def list_users(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    text = "👥 Users:\n\n"
+    for uid,name in ALLOWED_USERS.items():
+        text += f"{name} → `{uid}`\n"
+    await update.message.reply_text(text, parse_mode="Markdown")
+
 # ================= COUNTRY ADMIN =================
 
 async def add_country(update:Update, context:ContextTypes.DEFAULT_TYPE):
@@ -354,6 +376,7 @@ async def resetall(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
     USER_STATS.clear()
     await update.message.reply_text("♻️ All Stats Reset")
+    
 # ================= HANDLE =================
 
 async def handle(update:Update, context:ContextTypes.DEFAULT_TYPE):
