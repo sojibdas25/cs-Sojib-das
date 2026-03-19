@@ -252,24 +252,22 @@ f"""━━━━━━━━━━━━━━
                 # ===== GROUP MESSAGE =====
                 masked = mask(number)
 
-now = datetime.now().strftime("%d-%m-%Y %I:%M %p")
-
-text = f"""🚀 NEW OTP
+                text = f"""🚀 NEW OTP
 
 👤 User: {uname}
 🆔 ID: {uid}
 
-📱 Numba: {masked}
+📱 Number: {masked}
 🔐 OTP: `{otp}`
-
-🛠 Service: Telegram
-⏰ Time: {now}
 
 ━━━━━━━━━━━━━━
 🔐 Secure OTP Service
 ━━━━━━━━━━━━━━"""
 
-                group_buttons =  InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/Sojib9690")
+                group_buttons = InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton("📢 Otp Group", url="https://t.me/CsDrakOtpZone"),
+                        InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/Sojib9690")
                     ],
                     [
                         InlineKeyboardButton("🤖 Number Bot", url="https://t.me/CSDarkSMSBot")
