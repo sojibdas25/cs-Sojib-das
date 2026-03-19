@@ -138,7 +138,7 @@ async def resetotp(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
 def mask(num):
     num = num.replace("+","")
-    return num[:3] + "******" + num[-4:]
+    return num[:3] + "******" + num[4:]
 
 # ================= COUNTRY =================
 
@@ -199,7 +199,7 @@ async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
             except:
                 pass
 
-        await msg.edit_text("❌ No number")
+        await msg.edit_("❌ No number, try again")
 
     elif data[0] == "cancel":
         await query.edit_message_text("❌ Cancelled")
@@ -250,25 +250,28 @@ f"""━━━━━━━━━━━━━━
                 )
 
                 # ===== GROUP MESSAGE =====
-                masked = mask(number)
+                from datetime import datetime
 
-                text = f"""🚀 NEW OTP
+masked = mask(number)
+
+now = datetime.now().strftime("%d-%m-%Y %I:%M %p")
+
+text = f"""🚀 NEW OTP
 
 👤 User: {uname}
 🆔 ID: {uid}
 
-📱 Number: {masked}
+📱 Numba: {masked}
 🔐 OTP: `{otp}`
 
+🛠 Service: Telegram
+⏰ Time: {now}
+
 ━━━━━━━━━━━━━━
-Developer: t.me/Sojib9690
-Number Bot: @CSDarkSMSBot
+🔐 Secure OTP Service
 ━━━━━━━━━━━━━━"""
 
-                group_buttons = InlineKeyboardMarkup([
-                    [
-                        InlineKeyboardButton("📢 Otp Group", url="https://t.me/CsDrakOtpZone"),
-                        InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/Sojib9690")
+                group_buttons =  InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/Sojib9690")
                     ],
                     [
                         InlineKeyboardButton("🤖 Number Bot", url="https://t.me/CSDarkSMSBot")
