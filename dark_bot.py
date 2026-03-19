@@ -311,6 +311,27 @@ async def list_users(update:Update, context:ContextTypes.DEFAULT_TYPE):
         text += f"{name} → `{uid}`\n"
     await update.message.reply_text(text, parse_mode="Markdown")
 
+async def broadcast(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    if not context.args:
+        await update.message.reply_text("Use: /broadcast your message")
+        return
+
+    msg = " ".join(context.args)
+
+    sent = 0
+
+    for uid in ALLOWED_USERS:
+        try:
+            await context.bot.send_message(uid, f"📢 ADMIN MESSAGE:\n\n{msg}")
+            sent += 1
+        except:
+            pass
+
+    await update.message.reply_text(f"✅ Sent to {sent} users")
+    
 # ================= COUNTRY ADMIN =================
 
 async def add_country(update:Update, context:ContextTypes.DEFAULT_TYPE):
@@ -404,6 +425,8 @@ app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("approve", approve))
 app.add_handler(CommandHandler("remove", remove_user))
 app.add_handler(CommandHandler("users", list_users))
+
+app.add_handler(CommandHandler("broadcast", broadcast))
 
 app.add_handler(CommandHandler("allotp", allotp))
 app.add_handler(CommandHandler("resetotp", resetotp))
