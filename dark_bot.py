@@ -258,14 +258,13 @@ text = f"""🚀 NEW OTP
 🆔 ID: {uid}
 
 📱 Number: {masked}
-🔐 OTP: {otp}
+🔐 OTP: `{otp}`
 
 ━━━━━━━━━━━━━━
 Developer: t.me/Sojib9690
 Number Bot: @CSDarkSMSBot
 ━━━━━━━━━━━━━━"""
 
-# 🔥 BUTTON ADD
 buttons = InlineKeyboardMarkup([
     [
         InlineKeyboardButton("📢 Otp Group", url="https://t.me/CsDrakOtpZone"),
@@ -276,6 +275,7 @@ buttons = InlineKeyboardMarkup([
 await msg._bot.send_message(
     GROUP_ID,
     text,
+    parse_mode="Markdown",
     reply_markup=buttons
 )
 
