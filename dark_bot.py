@@ -233,8 +233,8 @@ async def fetch_otp(msg, number, clean, user, country):
 
                 USER_STATS[uid][country] += 1
 
-                # ===== USER MSG =====
-                buttons = InlineKeyboardMarkup([
+                # ===== USER MESSAGE =====
+                user_buttons = InlineKeyboardMarkup([
                     [InlineKeyboardButton("📢 OTP Group", url="https://t.me/CsDrakOtpZone")]
                 ])
 
@@ -245,14 +245,14 @@ f"""━━━━━━━━━━━━━━
 🔐 OTP RECEIVED:
 `{otp}`
 ━━━━━━━━━━━━━━""",
-parse_mode="Markdown",
-reply_markup=buttons
+                    parse_mode="Markdown",
+                    reply_markup=user_buttons
                 )
 
-                # ===== GROUP =====
+                # ===== GROUP MESSAGE =====
                 masked = mask(number)
 
-text = f"""🚀 NEW OTP
+                text = f"""🚀 NEW OTP
 
 👤 User: {uname}
 🆔 ID: {uid}
@@ -265,25 +265,31 @@ Developer: t.me/Sojib9690
 Number Bot: @CSDarkSMSBot
 ━━━━━━━━━━━━━━"""
 
-buttons = InlineKeyboardMarkup([
-    [
-        InlineKeyboardButton("📢 Otp Group", url="https://t.me/CsDrakOtpZone"),
-        InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/Sojib9690")
-    ],
-    [
-        InlineKeyboardButton("🤖 Number Bot", url="https://t.me/CSDarkSMSBot")
-    ]
-])
+                group_buttons = InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton("📢 Otp Group", url="https://t.me/CsDrakOtpZone"),
+                        InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/Sojib9690")
+                    ],
+                    [
+                        InlineKeyboardButton("🤖 Number Bot", url="https://t.me/CSDarkSMSBot")
+                    ]
+                ])
 
-await msg._bot.send_message(
-    GROUP_ID,
-    text,
-    parse_mode="Markdown",
-    reply_markup=buttons
-)
+                await msg._bot.send_message(
+                    chat_id=GROUP_ID,
+                    text=text,
+                    parse_mode="Markdown",
+                    reply_markup=group_buttons
+                )
 
-return
+                return
 
+        except:
+            pass
+
+        await asyncio.sleep(1.5)
+
+    await msg.edit_text(f"📱 {number}\n⌛ OTP not received (timeout)")
 # ================= ADMIN =================
 
 async def approve(update:Update, context:ContextTypes.DEFAULT_TYPE):
