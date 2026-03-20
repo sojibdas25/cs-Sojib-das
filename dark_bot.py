@@ -33,6 +33,10 @@ PROJECT_ID = "0257"
 ADMIN_ID = 8081334307
 GROUP_ID = -1003525081102
 
+async def get_json(url):
+    async with session.get(url, timeout=10) as res:
+        return await res.json()
+        
 # ================= DATABASE =================
 
 USER_STATS = {}
