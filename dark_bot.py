@@ -426,7 +426,11 @@ async def handle(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
 # ================= MAIN =================
 
-app = ApplicationBuilder().token(BOT_TOKEN).build()
+async def on_startup(app):
+    global session
+    session = aiohttp.ClientSession()
+    
+app = ApplicationBuilder().token(BOT_TOKEN).post_init(on_startup).build()
 
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("approve", approve))
