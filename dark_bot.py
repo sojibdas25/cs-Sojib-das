@@ -175,7 +175,7 @@ async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
             try:
                 url = f"https://api.durianrcs.com/out/ext_api/getMobile?name={USERNAME}&ApiKey={API_KEY}&pid={PROJECT_ID}&cuy={country}"
 
-                res = requests.get(url, timeout=6).json()
+                res = await get_json(url)
 
                 if res.get("code") != 200 or not res.get("data"):
                     continue
