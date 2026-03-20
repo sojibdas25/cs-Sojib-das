@@ -12,17 +12,23 @@ semaphore = asyncio.Semaphore(20)  # 20 user same speed
 # ================= KEEP ALIVE =================
 
 app_web = Flask(__name__)
+from flask import Flask
+from threading import Thread
+
+app_web = Flask(__name__)
 
 @app_web.route('/')
 def home():
-    return "Bot Running"
+    return "Bot Running ✅"
 
 def run():
     app_web.run(host='0.0.0.0', port=10000)
 
 def keep_alive():
-    Thread(target=run).start()
-
+    t = Thread(target=run)
+    t.daemon = True  # 🔥 important (background run)
+    t.start()
+    
 # ================= CONFIG =================
 
 BOT_TOKEN = "8740780011:AAHbnPoUV_4C6JGULWVQgOAvbvW96gkqEYo"
