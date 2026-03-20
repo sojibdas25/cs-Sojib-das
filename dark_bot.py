@@ -1,6 +1,9 @@
 import asyncio
 import aiohttp
 
+from flask import Flask
+from threading import Thread
+
 from telegram import *
 from telegram.ext import *
 
@@ -11,7 +14,6 @@ semaphore = asyncio.Semaphore(20)  # 20 user same speed
 
 # ================= KEEP ALIVE =================
 
-app_web = Flask(__name__)
 from flask import Flask
 from threading import Thread
 
