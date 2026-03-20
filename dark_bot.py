@@ -217,7 +217,6 @@ async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
 # ================= OTP =================
 
 async def fetch_otp(msg, number, clean, user, country):
-async def fetch_otp(msg, number, clean, user, country):
 
     async with semaphore:   # 🔥 speed control
 
