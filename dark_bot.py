@@ -295,7 +295,11 @@ f"""━━━━━━━━━━━━━━
         except:
             pass
 
-        await asyncio.sleep(1.5)
+    if asyncio.get_event_loop().time() - start > 300:
+    await msg.edit_text(f"📱 {number}\n⌛ OTP timeout (5 min)")
+    return
+        
+        await asyncio.sleep(2)
 
     await msg.edit_text(f"📱 {number}\n⌛ OTP not received (timeout)")
 # ================= ADMIN =================
