@@ -220,7 +220,9 @@ async def fetch_otp(msg, number, clean, user, country):
 
     url = f"https://api.durianrcs.com/out/ext_api/getMsg?name={USERNAME}&ApiKey={API_KEY}&pn={clean}&pid={PROJECT_ID}"
 
-    for i in range(800):
+    start = asyncio.get_event_loop().time()
+
+while True:
 
         try:
             res = await get_json(url)
