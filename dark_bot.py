@@ -219,7 +219,7 @@ async def fetch_otp(msg, number, clean, user, country):
     for i in range(800):
 
         try:
-            res = requests.get(url, timeout=5).json()
+            res = await get_json(url)
 
             if res.get("data") and res["data"] != "":
                 otp = res["data"]
