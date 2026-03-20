@@ -1,10 +1,13 @@
 import asyncio
-import requests
-from flask import Flask
-from threading import Thread
+import aiohttp
 
 from telegram import *
 from telegram.ext import *
+
+# ================= GLOBAL =================
+
+session = None
+semaphore = asyncio.Semaphore(20)  # 20 user same speed
 
 # ================= KEEP ALIVE =================
 
