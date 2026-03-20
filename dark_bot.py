@@ -469,7 +469,7 @@ app.add_handler(CommandHandler("resetall", resetall))
 app.add_handler(MessageHandler(filters.TEXT, handle))
 app.add_handler(CallbackQueryHandler(button_click))
 
-print("🔥 SUPER BOT RUNNING 🔥")
+print("SUPER BOT RUNNING")
 
 keep_alive()
 app.run_polling()
