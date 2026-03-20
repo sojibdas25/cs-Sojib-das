@@ -218,9 +218,9 @@ async def button_click(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
 async def fetch_otp(msg, number, clean, user, country):
 
-    url = f"https://api.durianrcs.com/out/ext_api/getMsg?name={USERNAME}&ApiKey={API_KEY}&pn={clean}&pid={PROJECT_ID}"
-
     start = asyncio.get_event_loop().time()
+    
+    url = f"https://api.durianrcs.com/out/ext_api/getMsg?name={USERNAME}&ApiKey={API_KEY}&pn={clean}&pid={PROJECT_ID}"
 
 while True:
 
